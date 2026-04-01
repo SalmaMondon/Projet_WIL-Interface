@@ -1,7 +1,33 @@
+<p align="center">
+  <img src="assets/logo_wil_quedar.png" width="200" title="Logo Projet WIL">
+</p>
+
 # 🛸 Projet WIL - Station de Contrôle au Sol
+
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![PyQt6](https://img.shields.io/badge/Framework-PyQt6-green)
+![SQLite](https://img.shields.io/badge/DB-SQLite-lightgrey)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+![Status](https://img.shields.io/badge/Status-En%20Développement-orange)
+
+---
 
 ## 📝 Présentation 
 La Station de Contrôle WIL est une interface graphique développée en Python (PyQt6) permettant le suivi et l'analyse d'images capturées par un dirigeable de surveillance. L'outil intègre un système de détection d'objets (moutons, voitures, etc.) avec archivage automatique en base de données.
+
+---
+
+## 📸 Aperçu de l'interface
+
+### Mode Radar (Veille)
+<p align="center">
+  <img src="assets/Projet_WIL-Affichage_standard.png" width="600" title="Interface Radar">
+</p>
+
+### Analyse et Détection (en développement, détection aléatoire pour l'instant)
+<p align="center">
+  <img src="assets/detection.png" width="600" title="Détections d'objets">
+</p>
 
 ---
 
