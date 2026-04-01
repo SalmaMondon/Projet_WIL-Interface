@@ -5,6 +5,9 @@ __pycache__/
 # Base de données 
 *.db
 
+#Rapports CSV
+*.csv
+
 # Environnement virtuel
 venv/
 .venv/
