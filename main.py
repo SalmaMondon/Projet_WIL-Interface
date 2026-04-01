@@ -76,10 +76,44 @@ class StationControleWIL(QWidget):
         layout_telemetrie.addWidget(self.label_titre)
 
         layout_telemetrie.addWidget(QLabel("Batterie :"))
+        # --- WIDGET BATTERIE STYLE ---
+        layout_batterie_container = QHBoxLayout() # Pour centrer la batterie
+        
         self.barre_batterie = QProgressBar()
         self.barre_batterie.setValue(100)
-        self.barre_batterie.setStyleSheet("QProgressBar::chunk { background-color: #2ecc71; }")
-        layout_telemetrie.addWidget(self.barre_batterie)
+        self.barre_batterie.setFixedSize(150, 40) # Taille fixe pour garder la forme
+        self.barre_batterie.setTextVisible(False) # On cache le texte interne pour le style
+        
+        # Le style QSS magique
+        self.barre_batterie.setStyleSheet("""
+            QProgressBar {
+                border: 3px solid #7f8c8d;
+                border-radius: 5px;
+                background-color: #2c3e50;
+                margin-right: 10px; /* Espace pour le petit embout */
+            }
+            QProgressBar::chunk {
+                background-color: #2ecc71;
+                width: 10px; /* Donne un effet de cellules séparées */
+                margin: 2px;
+            }
+        """)
+        
+        # Création du petit embout (le "+" de la pile)
+        self.embout_batterie = QLabel()
+        self.embout_batterie.setFixedSize(8, 20)
+        self.embout_batterie.setStyleSheet("background-color: #7f8c8d; border-radius: 2px;")
+
+        #Crétaion du pourcentage de batterie
+        self.pourcentage_batterie = QLabel(f"{self.barre_batterie.value()}%") 
+        self.pourcentage_batterie.setStyleSheet("color: white; font-weight: bold; margin-left: 5px;")
+        
+        layout_batterie_container.addWidget(self.barre_batterie)
+        layout_batterie_container.addWidget(self.embout_batterie)
+        layout_batterie_container.addWidget(self.pourcentage_batterie)
+        layout_batterie_container.addStretch() # Aligner à gauche
+        
+        layout_telemetrie.addLayout(layout_batterie_container)
 
         self.label_altitude = QLabel("Altitude : 0.0 m")
         self.label_altitude.setStyleSheet("font-size: 20px; padding: 10px; background: #ecf0f1; border-radius: 5px;")
@@ -228,14 +262,32 @@ class StationControleWIL(QWidget):
         Entrée :
             -valeur (int) : pourcentage de batterie restant
         """
+        # 1. Mise à jour de la barre
         self.barre_batterie.setValue(valeur)
-        couleur = "#2ecc71" # Vert
-        if valeur < 50: couleur = "#f39c12" # Orange
-        if valeur < 20: couleur = "#e74c3c" # Rouge
+    
+        # 2. Mise à jour du texte (Correction ici)
+        self.pourcentage_batterie.setText(f"{valeur}%")
         
+        # 3. Changement de couleur dynamique (Optionnel mais stylé)
+        if valeur > 50:
+            couleur = "#2ecc71" # Vert
+        elif valeur > 20:
+            couleur = "#f39c12" # Orange
+        else:
+            couleur = "#e74c3c" # Rouge
+            
         self.barre_batterie.setStyleSheet(f"""
-            QProgressBar {{ border: 1px solid grey; border-radius: 5px; text-align: center; }}
-            QProgressBar::chunk {{ background-color: {couleur}; }}
+            QProgressBar {{
+                border: 3px solid #7f8c8d;
+                border-radius: 5px;
+                background-color: #2c3e50;
+                margin-right: 10px;
+            }}
+            QProgressBar::chunk {{
+                background-color: {couleur};
+                width: 10px;
+                margin: 2px;
+            }}
         """)
 
 
