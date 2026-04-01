@@ -5,7 +5,7 @@ La Station de Contrôle WIL est une interface graphique développée en Python (
 
 ---
 
-## 🚀 Fonctionnalités Clés
+## 🎼 Fonctionnalités clés
 **Interface HUD (Radar)** : Mode veille avec grille radar et logo en filigrane lorsque aucune image n'est chargée.
 
 - **Analyse Multi-Cibles** : Menu déroulant permettant de sélectionner le type d'objet à détecter (Moutons, Voitures, Humains, Bâtiments).
