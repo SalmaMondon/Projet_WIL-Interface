@@ -4,7 +4,7 @@
 ![PyQt6](https://img.shields.io/badge/Framework-PyQt6-green)
 ![SQLite](https://img.shields.io/badge/DB-SQLite-lightgrey)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Status](https://img.shields.io/badge/Status-En%20Développement-orange)
+![Status](https://img.shields.io/badge/Status-In%20Developpement-orange)
 
 ---
 
