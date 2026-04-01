@@ -32,6 +32,9 @@ class StationControleWIL(QWidget):
         
         
     def init_base_de_donnees(self):
+        """
+        Création de la base de donnée ou utilisation de l'ancienne si elle existe déjà
+        """
         self.conn = sqlite3.connect("projet_wil.db")
         cursor = self.conn.cursor()
         cursor.execute('''
@@ -50,6 +53,9 @@ class StationControleWIL(QWidget):
 
 
     def init_ui(self):
+        """
+        Création de l'interface graphique
+        """
         # Layout Global : Gauche (Télémétrie) | Droite (Image et historique)
         layout_global = QHBoxLayout()
         
@@ -138,7 +144,7 @@ class StationControleWIL(QWidget):
 
         layout_droite.addWidget(self.label_compteur)
 
-        # Zone d'affichage image (Canvas) remplace l'ancien label_photo
+        # Zone d'affichage image (Canvas) 
         self.canvas = QLabel("Aucune image")
         self.canvas.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.canvas.setMinimumSize(640, 480)
@@ -183,6 +189,12 @@ class StationControleWIL(QWidget):
     # 5. FONCTIONS LOGIQUES
     # ==========================================
     def animer_altitude(self, nouvelle_valeur):
+        """
+        Permet de faire défiler l'altitude sur l'interface
+
+        Entrée : 
+            -nouvelle_valeur (float) : nouvelle altitude à afficher 
+        """
         # 1. On récupère la valeur actuelle affichée (on enlève "Altitude : " et " m")
         try:
             valeur_actuelle = float(self.label_altitude.text().split(":")[1].replace("m", "").strip())
@@ -202,11 +214,20 @@ class StationControleWIL(QWidget):
 
 
     def mettre_a_jour_label_altitude(self, valeur):
+        """
+        Affichage de la valeur de l'altitude
+        """
         self.label_altitude.setText(f"Altitude : {valeur:.1f} m")
 
 
 
     def mettre_a_jour_batterie(self, valeur):
+        """
+        Affichage de la batterie, changement de couleur si batterie faible
+        
+        Entrée :
+            -valeur (int) : pourcentage de batterie restant
+        """
         self.barre_batterie.setValue(valeur)
         couleur = "#2ecc71" # Vert
         if valeur < 50: couleur = "#f39c12" # Orange
@@ -220,7 +241,9 @@ class StationControleWIL(QWidget):
 
 
     def appliquer_style_sombre(self):
-
+        """
+        Définis le style sombre globale de l'interface
+        """
         # 1. STYLE GLOBAL SOMBRE
         self.setStyleSheet("""
             QWidget { background-color: #1e1e2e; color: #cdd6f4; font-family: 'Consolas', 'Courier New', monospace; }
@@ -257,6 +280,9 @@ class StationControleWIL(QWidget):
 
 
     def action_image(self):
+        """
+        Permet de choisir l'image à analyser
+        """
         # 1. Ouvre une fenêtre pour choisir le fichier manuellement
         chemin_fichier, _ = QFileDialog.getOpenFileName(
             self, 
@@ -265,7 +291,7 @@ class StationControleWIL(QWidget):
             "Images (*.png *.jpeg *.jpg *.bmp);;Tous les fichiers (*)"
         )
         
-        # 2. Si tu as bien sélectionné une image (et pas cliqué sur Annuler)
+        # 2. Si une image est séléctionnée (pas d'annulation)
         if chemin_fichier:
             self.message_overlay = "" # On efface le message puisque l'image arrive
             self.chemin_image_actuelle = chemin_fichier
@@ -274,8 +300,11 @@ class StationControleWIL(QWidget):
 
 
     def action_compter(self):
+        """
+        Permet de compter les objets en se basant sur l'analyse d'image.
+        Actuellement, comportement aléatoire"""
         if self.image_originale.isNull() or not self.chemin_image_actuelle :
-            # Au lieu de self.canvas.setText(...), on change la variable et on redessine
+            # On change la variable et on redessine
             self.message_overlay = "ERREUR : Chargez une image d'abord !"
             self.dessiner_tout()
             return
@@ -306,7 +335,9 @@ class StationControleWIL(QWidget):
 
 
     def toggle_overlay(self):
-        """Affichage des rectangles rouges"""
+        """
+        Affichage des rectangles rouges
+        """
         self.afficher_boxes = not self.afficher_boxes
         self.btn_toggle.setText("Afficher les détections" if not self.afficher_boxes else "Masquer les détections")
         self.dessiner_tout()
@@ -314,6 +345,9 @@ class StationControleWIL(QWidget):
 
 
     def charger_nouvelle_image(self, chemin, coordonnees):
+        """
+        Permet de charger une image et ses méthadonnées
+        """
         self.image_originale = QPixmap(chemin)
         
         if self.image_originale.isNull():
@@ -326,7 +360,7 @@ class StationControleWIL(QWidget):
         # Si l'image est trouvée, on vide le message pour ne pas polluer l'affichage futur
         self.message_overlay = ""
 
-        # Reste du code pour convertir les coordonnées
+        # Code pour convertir les coordonnées
         if coordonnees and not isinstance(coordonnees[0], QRect):
             self.objets_detectes_detectes = [QRect(x, y, w, h) for (x, y, w, h) in coordonnees]
         else:
@@ -348,6 +382,9 @@ class StationControleWIL(QWidget):
 
 
     def dessiner_tout(self):
+        """
+        Permet d'actualiser l'affichage dans le canvas
+        """
         # --- CAS 1 : MODE VEILLE (RADAR) ---
         if self.image_originale.isNull():
             self.canvas.setScaledContents(True)
@@ -376,7 +413,7 @@ class StationControleWIL(QWidget):
                 painter.drawEllipse(centre, r, r)
 
             # --- 2. DESSIN DU LOGO (FILIGRANE) ---
-            # Attention au nom du fichier ici ! (Vérifie si c'est .jpg ou .png)
+            # Attention au nom du fichier ici ! 
             pixmap_logo = QPixmap("assets/logo_wil_quedar_radar.png") 
             if not pixmap_logo.isNull():
                 painter.setOpacity(0.2)
@@ -389,7 +426,7 @@ class StationControleWIL(QWidget):
             if self.message_overlay:
                 painter.setOpacity(1.0) # On remet l'opacité à 100%
                 
-                # Config de ta police
+                # Configuration de la police
                 police_radar = QFont("Consolas", 18)
                 police_radar.setBold(True)
                 police_radar.setLetterSpacing(QFont.SpacingType.PercentageSpacing, 110)
@@ -399,7 +436,7 @@ class StationControleWIL(QWidget):
                 couleur = QColor("#ff5555") if "ERREUR" in self.message_overlay else QColor("#89b4fa")
                 painter.setPen(couleur)
                 
-                # Positionnement (centré avec décalage vers le bas)
+                # Positionnement (centré)
                 rect_texte = fond_veille.rect().adjusted(20, 20, -20, -20)
                 painter.drawText(
                     rect_texte, 
@@ -423,13 +460,13 @@ class StationControleWIL(QWidget):
                 x, y, w, h = rect.getRect()
                 t = int(min(w, h) * 0.25)
                 
-                # 1. DESSIN DES COINS (Ton code actuel)
+                # 1. DESSIN DES COINS 
                 painter.drawLine(x, y, x + t, y); painter.drawLine(x, y, x, y + t)
                 painter.drawLine(x + w, y, x + w - t, y); painter.drawLine(x + w, y, x + w, y + t)
                 painter.drawLine(x, y + h, x + t, y + h); painter.drawLine(x, y + h, x, y + h - t)
                 painter.drawLine(x + w, y + h, x + w - t, y + h); painter.drawLine(x + w, y + h, x + w, y + h - t)
 
-                # 2. AJOUT DU POINT CENTRAL (La correction)
+                # 2. AJOUT DU POINT CENTRAL
                 # On définit un pinceau plein pour le point
                 painter.setBrush(QColor(255, 50, 50)) 
                 
@@ -456,13 +493,16 @@ class StationControleWIL(QWidget):
 
 
     def enregistrer_capture(self, chemin, altitude, nb, type_objet): 
+        """
+        Enregistre les image ste leur données dans la BDD
+        """
         horodatage = datetime.now().strftime("%H:%M:%S")
         
         liste_coords = [f"{r.x()},{r.y()},{r.width()},{r.height()}" for r in self.objets_detectes]
         chaine_coords = ";".join(liste_coords)
 
         cursor = self.conn.cursor()
-        # Correction : On retire le doublon 'type_objet' dans la requête
+        # Requête SQl
         cursor.execute("""
             INSERT INTO missions (horodatage, chemin_image, altitude, nb_objets, coordonnees, type_objet) 
             VALUES (?, ?, ?, ?, ?, ?)""",
@@ -474,7 +514,9 @@ class StationControleWIL(QWidget):
 
 
     def generer_rapport(self):
-        """Exporte les données de la base en fichier CSV avec les coordonnées"""
+        """
+        Exporte les données de la base en fichier CSV avec les coordonnées
+        """
         try:
             # 1. Préparer le dossier de destination
             dossier_sortie = "rapports"
@@ -507,6 +549,9 @@ class StationControleWIL(QWidget):
 
 
     def charger_depuis_historique(self, item):
+        """
+        Pemret de charger une image depuis l'historique des analyses
+        """
         texte_complet = item.text() 
         try:
             # 1. On extrait l'horodatage pour retrouver la ligne en BDD
