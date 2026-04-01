@@ -1,4 +1,4 @@
-# 🛸 Projet WIL - Station de Contrôle au Sol
+# 🛸 Project WIL - Ground Control Station
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![PyQt6](https://img.shields.io/badge/Framework-PyQt6-green)
@@ -8,86 +8,86 @@
 
 ---
 
-## 📝 Présentation 
-La Station de Contrôle WIL est une interface graphique développée en Python (PyQt6) permettant le suivi et l'analyse d'images capturées par un dirigeable de surveillance. L'outil intègre un système de détection d'objets (moutons, voitures, etc.) avec archivage automatique en base de données.
+## 📝 Overview
+The WIL Ground Control Station is a graphical interface developed in Python (PyQt6) designed for monitoring and analyzing images captured by a surveillance airship. The tool features an object detection system (sheep, cars, etc.) with automatic database archiving.
 
 ---
 
-## 📸 Aperçu de l'interface
+## 📸 Interface Preview
 
-### Mode Radar (Veille)
+### Radar Mode (Standby)
 <p align="center">
-  <img src="assets/Projet_WIL-Affichage_standard.png" width="600" title="Interface Radar">
+  <img src="assets/Projet_WIL-Affichage_standard.png" width="600" title="Radar Interface">
 </p>
 
-### Analyse et Détection (en développement, détection aléatoire pour l'instant)
+### Analysis & Detection (In development, currently using simulated detection)
 <p align="center">
-  <img src="assets/detection.png" width="600" title="Détections d'objets">
+  <img src="assets/detection.png" width="600" title="Object Detections">
 </p>
 
 ---
 
-## 🎼 Fonctionnalités clés
-**Interface HUD (Radar)** : Mode veille avec grille radar et logo en filigrane lorsque aucune image n'est chargée.
+## 🎼 Key Features
+**HUD Interface (Radar)** : Standby mode featuring a radar grid and a watermarked logo when no image is loaded.
 
-- **Analyse Multi-Cibles** : Menu déroulant permettant de sélectionner le type d'objet à détecter (Moutons, Voitures, Humains, Bâtiments).
+- **Multi-Target Analysis** : Dropdown menu to select the type of object to detect (Sheep, Cars, Humans, Buildings).
 
-- **Visualisation Avancée** : Marquage des cibles par des coins rouges et un point central (centroid) pour un verrouillage précis.
+- **Advanced Visualization** : Target marking using red corner brackets and a center point (centroid) for precise locking.
 
-- **Télémétrie Animée** : Affichage de l'altitude avec transition fluide et indicateur de niveau de batterie.
+- **Animated Telemetry** : Altitude display with smooth transitions and a battery level indicator.
 
-- **Gestion des Données** : Base de données SQLite intégrée pour l'historique des missions.
+- **Data Management** : Integrated SQLite database for mission logs.
 
-    - Exportation automatique des rapports au format CSV.
+    - Automatic report export in CSV format.
 
-    - Rechargement d'anciennes captures depuis l'historique.
+    - Ability to reload previous captures from the history list.
 
 ---
 
 ## 🛠️ Installation
-### Prérequis :
-- Python 3.10+
+### Prerequisites :
+- Python 3.11+
 - PyQt6
-- SQLite3 (inclus de base avec Python)
+- SQLite3 (built-in with Python)
 
 ### Étapes
-1. Clonez le dépôt :
+1. Clone the repository :
     ```bash
     git clone https://github.com/SalmaMondon/Projet_WIL-Interface.git
     ```
 
-2. Installez les dépendances :
+2. Install dependencies :
     ```bash
     pip install PyQt6
     ```
 
     
 
-3. Lancez l'application :
+3. Run the application :
     ```bash
     python main.py
     ```
 
 ---
 
-## 🖥️ Utilisation
-1. **Chargement** : Cliquez sur "**Choisir une image**" pour importer une vue aérienne.
+## 🖥️ How to Use
+1. **Loading** : Click on "**Choisir une image**" to import an aerial view.
 
-2. **Configuration** : Sélectionnez le type d'objet dans le **menu déroulant** à gauche.
+2. **Configuration** : Select the object type from the **dropdown menu** on the left.
 
-3. **Analyse** : Cliquez sur "**Compter les objets**" pour lancer la simulation de détection.
+3. **Analysis** : Click on "**Compter les objets**" to launch the detection simulation.
 
-4. **Historique** : Cliquez sur une ligne de l'**historique** pour revoir une ancienne mission (l'altitude et les boîtes de détection se mettront à jour).
+4. **History** : Click on a row in the **history list** to review a past mission (altitude and detection boxes will update automatically).
 
-5. **Rapport** : Générez un **fichier CSV** pour extraire les statistiques de vol.
+5. **Report** : Generate a **CSV file** to extract flight statistics.
 
 ---
 
-## 📂 Structure du Projet
-- `main.py` : Code source principal de l'interface.
+## 📂 Project Structure
+- `main.py` : Main source code of the interface.
 
-- `projet_wil.db` : Base de données SQLite (générée automatiquement).
+- `projet_wil.db` : SQLite database (generated automatically).
 
-- `assets/` : Contient les logos  et les icônes.
+- `assets/` : Contains logos and icons.
 
-- `rapports/` : Dossier de sortie des fichiers CSV.
+- `rapports/` : Output folder for CSV files.
