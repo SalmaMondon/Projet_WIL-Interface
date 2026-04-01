@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="assets/logo_wil_quedar.png" width="200" title="Logo Projet WIL">
-</p>
-
 # 🛸 Projet WIL - Station de Contrôle au Sol
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
