@@ -14,7 +14,7 @@ La Station de Contrôle WIL est une interface graphique développée en Python (
 
 - **Télémétrie Animée** : Affichage de l'altitude avec transition fluide et indicateur de niveau de batterie.
 
-- **Gestion des Données** : * Base de données SQLite intégrée pour l'historique des missions.
+- **Gestion des Données** : Base de données SQLite intégrée pour l'historique des missions.
 
     - Exportation automatique des rapports au format CSV.
 
@@ -30,29 +30,34 @@ La Station de Contrôle WIL est une interface graphique développée en Python (
 
 ### Étapes
 1. Clonez le dépôt :
-
-    `git clone https://github.com/SalmaMondon/Projet_WIL-Interface.git`
+    ```bash
+    git clone https://github.com/SalmaMondon/Projet_WIL-Interface.git
+    ```
 
 2. Installez les dépendances :
+    ```bash
+    pip install PyQt6
+    ```
 
-    `pip install PyQt6`
+    
 
 3. Lancez l'application :
-
-    `python main.py`
+    ```bash
+    python main.py
+    ```
 
 ---
 
 ## 🖥️ Utilisation
-1. **Chargement** : Cliquez sur "Choisir une image" pour importer une vue aérienne.
+1. **Chargement** : Cliquez sur "**Choisir une image**" pour importer une vue aérienne.
 
-2. **Configuration** : Sélectionnez le type d'objet dans le menu déroulant à gauche.
+2. **Configuration** : Sélectionnez le type d'objet dans le **menu déroulant** à gauche.
 
-3. **Analyse** : Cliquez sur "Compter les objets" pour lancer la simulation de détection.
+3. **Analyse** : Cliquez sur "**Compter les objets**" pour lancer la simulation de détection.
 
-4. **Historique** : Cliquez sur une ligne de l'historique pour revoir une ancienne mission (l'altitude et les boîtes de détection se mettront à jour).
+4. **Historique** : Cliquez sur une ligne de l'**historique** pour revoir une ancienne mission (l'altitude et les boîtes de détection se mettront à jour).
 
-5. **Rapport** : Générez un fichier CSV pour extraire les statistiques de vol.
+5. **Rapport** : Générez un **fichier CSV** pour extraire les statistiques de vol.
 
 ---
 
