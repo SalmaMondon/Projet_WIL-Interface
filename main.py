@@ -1,6 +1,7 @@
 import sys
 import sqlite3
 import csv
+import os
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QGraphicsDropShadowEffect, QComboBox
 from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont
 from PyQt6.QtCore import Qt, QRect, QVariantAnimation
@@ -475,17 +476,29 @@ class StationControleWIL(QWidget):
     def generer_rapport(self):
         """Exporte les données de la base en fichier CSV avec les coordonnées"""
         try:
+            # 1. Préparer le dossier de destination
+            dossier_sortie = "rapports"
+            if not os.path.exists(dossier_sortie):
+                os.makedirs(dossier_sortie) # Crée le dossier s'il n'existe pas
+
+
             cursor = self.conn.cursor()
             cursor.execute("SELECT id, horodatage, chemin_image, altitude, nb_objets, type_objet, coordonnees FROM missions")
             data = cursor.fetchall()
             
+            # 2. Construire le nom et le CHEMIN COMPLET
             nom_fichier = f"rapport_mission_{datetime.now().strftime('%d_%m_%Y')}.csv"
+            chemin_complet = os.path.join(dossier_sortie, nom_fichier) # Résultat : "rapports/rapport_mission_..."
             
-            with open(nom_fichier, 'w', newline='', encoding='utf-8') as f:
+            # 3. Ouvrir le fichier avec le chemin complet
+            with open(chemin_complet, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f, delimiter=';')
-                # Correction de la virgule entre Type et Coordonnées
                 writer.writerow(["ID", "Heure", "Chemin Image", "Altitude (m)", "Nombre", "Type", "Coordonnées"])
                 writer.writerows(data)
+
+            # Mise à jour de l'UI
+            self.label_archive.setText(f"Rapport généré dans /rapports")
+            self.label_archive.setStyleSheet("color: #2ecc71; font-weight: bold;")
 
         except Exception as e:
             print(f"Erreur lors de la génération du rapport : {e}")
