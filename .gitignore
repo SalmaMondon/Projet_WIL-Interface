@@ -8,9 +8,6 @@ __pycache__/
 #Rapports CSV
 *.csv
 
-#Config logiciel
-config.json
-
 # Environnement virtuel
 venv/
 .venv/
