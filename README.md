@@ -17,12 +17,12 @@ The WIL Ground Control Station is a graphical interface developed in Python (PyQ
 
 ### Radar Mode (Standby)
 <p align="center">
-  <img src="assets/Projet_WIL-Affichage_standard.png" width="600" title="Radar Interface">
+  <img src="assets/Projet_WIL-Affichage_standard_en.png" width="600" title="Radar Interface">
 </p>
 
 ### Analysis & Detection (In development, currently using simulated detection)
 <p align="center">
-  <img src="assets/detection.png" width="600" title="Object Detections">
+  <img src="assets/detection_en.png" width="600" title="Object Detections">
 </p>
 
 ---

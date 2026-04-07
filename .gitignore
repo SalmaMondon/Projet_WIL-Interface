@@ -9,7 +9,7 @@ __pycache__/
 *.csv
 
 #Config logiciel
-*.json
+config.json
 
 # Environnement virtuel
 venv/
