@@ -71,11 +71,11 @@ The WIL Ground Control Station is a graphical interface developed in Python (PyQ
 ---
 
 ## 🖥️ How to Use
-1. **Loading** : Click on "**Choisir une image**" to import an aerial view.
+1. **Loading** : Click on "**Choose a picture**" to import an aerial view.
 
 2. **Configuration** : Select the object type from the **dropdown menu** on the left.
 
-3. **Analysis** : Click on "**Compter les objets**" to launch the detection simulation.
+3. **Analysis** : Click on "**Count objects**" to launch the detection simulation.
 
 4. **History** : Click on a row in the **history list** to review a past mission (altitude and detection boxes will update automatically).
 
