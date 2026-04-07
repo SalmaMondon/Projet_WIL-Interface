@@ -397,10 +397,28 @@ class StationControleWIL(QWidget):
         Définis le style sombre globale de l'interface
         """
         # 1. STYLE GLOBAL SOMBRE
+        # 1. STYLE GLOBAL SOMBRE
         self.setStyleSheet("""
             QWidget { background-color: #1e1e2e; color: #cdd6f4; font-family: 'Consolas', 'Courier New', monospace; }
-            QPushButton {background-color: #34495e; color: white; font-weight: bold; border-radius: 8px; padding: 10px;}
+            
+            QPushButton {
+                background-color: #34495e; 
+                color: white; 
+                font-weight: bold; 
+                border-radius: 8px; 
+                padding: 10px;
+                border: none;
+            }
+            
             QPushButton:hover { background-color: #2c3e50; }
+
+            /* AJOUT ICI : État quand on clique ou qu'on presse la touche clavier */
+            QPushButton:pressed, QPushButton[down="true"] { 
+                background-color: #1a252f; 
+                border: 1px solid #3498db;
+                padding-top: 13px; /* Simule l'enfoncement en décalant légèrement le texte */
+            }
+
             QListWidget { background-color: #181825; color: #a6adc8; }
         """)
 
@@ -417,8 +435,22 @@ class StationControleWIL(QWidget):
         """)
 
         self.btn_ascend.setStyleSheet("""
-            QPushButton { background-color: #e67e22; border-radius: 22px; font-size: 18px; font-weight: bold; width: 45px; height: 45px; padding: 0px;}
+            QPushButton { 
+                background-color: #e67e22; 
+                border-radius: 22px; 
+                font-size: 18px; 
+                font-weight: bold; 
+                width: 45px; 
+                height: 45px; 
+                padding: 0px;
+            }
             QPushButton:hover { background-color: #D56d11; }
+            
+            /* AJOUT ICI pour le bouton orange */
+            QPushButton:pressed, QPushButton[down="true"] { 
+                background-color: #a05810;
+                padding-top: 4px; 
+            }
         """)
 
         self.label_statut.setStyleSheet("color: #e74c3c; font-weight: bold; font-family: 'Courier New', monospace; border-radius: 8px; padding: 10px")
