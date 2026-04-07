@@ -3,7 +3,7 @@ import sqlite3
 import csv
 import os
 import json
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QGraphicsDropShadowEffect, QComboBox
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QGraphicsDropShadowEffect, QComboBox, QGridLayout
 from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont
 from PyQt6.QtCore import Qt, QRect, QVariantAnimation
 from PyQt6.QtWidgets import QListWidget
@@ -103,6 +103,7 @@ class StationControleWIL(QWidget):
 
         self.label_batterie = QLabel("Batterie :")
         layout_telemetrie.addWidget(self.label_batterie)
+
         # --- WIDGET BATTERIE STYLE ---
         layout_batterie_container = QHBoxLayout() # Pour centrer la batterie
         
@@ -153,6 +154,43 @@ class StationControleWIL(QWidget):
         self.label_archive = QLabel("")
         self.label_archive.setStyleSheet("color: #2980b9; font-weight: bold;")
         layout_telemetrie.addWidget(self.label_archive)
+
+       # --- SECTION PILOTAGE (D-PAD COMPACT) ---
+        self.label_pilotage = QLabel("\n COMMANDES DE VOL")
+        self.label_pilotage.setStyleSheet("font-weight: bold; color: #3498db;")
+        layout_telemetrie.addWidget(self.label_pilotage)
+
+        layout_fleches = QGridLayout()
+        layout_fleches.setSpacing(5) # Un petit espace entre les boutons pour la clarté
+
+        # 1. Création des boutons
+        self.btn_up    = QPushButton("▲")
+        self.btn_down  = QPushButton("▼")
+        self.btn_left  = QPushButton("◀")
+        self.btn_right = QPushButton("▶")
+        self.btn_ascend = QPushButton("🦋") # Texte court pour tenir au centre
+
+        # 2. Style des boutons (on les fait carrés pour un beau rendu)
+        style_bouton = "font-size: 18px; font-weight: bold; width: 45px; height: 45px; padding: 0px;"
+        for btn in [self.btn_up, self.btn_down, self.btn_left, self.btn_right, self.btn_ascend]:
+            btn.setStyleSheet(style_bouton)
+
+        # Style spécifique pour le bouton central (couleur différente)
+        self.btn_ascend.setStyleSheet(style_bouton + "background-color: #e67e22; border-radius: 22px;") # Rond au centre !
+
+        # 3. Placement dans la Grille (Ligne, Colonne)
+        #       Col 0 | Col 1 | Col 2
+        # L0 :        |  HAUT |       
+        # L1 : GAUCHE | CENTRE| DROITE
+        # L2 :        |  BAS  |       
+        
+        layout_fleches.addWidget(self.btn_up, 0, 1)     # Haut
+        layout_fleches.addWidget(self.btn_left, 1, 0)   # Gauche
+        layout_fleches.addWidget(self.btn_ascend, 1, 1) # CENTRE (Altitude)
+        layout_fleches.addWidget(self.btn_right, 1, 2)  # Droite
+        layout_fleches.addWidget(self.btn_down, 2, 1)   # Bas
+
+        layout_telemetrie.addLayout(layout_fleches)
 
         layout_telemetrie.addStretch()
         layout_global.addLayout(layout_telemetrie, stretch=1)
@@ -251,6 +289,13 @@ class StationControleWIL(QWidget):
         self.btn_toggle.clicked.connect(self.toggle_overlay)
         self.btn_langue.clicked.connect(self.changer_langue) 
 
+        # --- CONNEXION DES TOUCHES DE PILOTAGE ---
+        self.btn_up.clicked.connect(lambda: self.piloter("AVANCER"))
+        self.btn_down.clicked.connect(lambda: self.piloter("RECULER"))
+        self.btn_left.clicked.connect(lambda: self.piloter("GAUCHE"))
+        self.btn_right.clicked.connect(lambda: self.piloter("DROITE"))
+        self.btn_ascend.clicked.connect(lambda: self.piloter("MONTER"))
+
 
 
     # ==========================================
@@ -348,6 +393,11 @@ class StationControleWIL(QWidget):
         self.btn_langue.setStyleSheet("""
             QPushButton { background-color: #960018; color: white; font-family: 'Consolas', 'Courier New', monospace; font-weight: bold; border-radius: 8px; padding: 10px;}
             QPushButton:hover { background-color: #850007; }
+        """)
+
+        self.btn_ascend.setStyleSheet("""
+            QPushButton { background-color: #e67e22; border-radius: 22px; font-size: 18px; font-weight: bold; width: 45px; height: 45px; padding: 0px;}
+            QPushButton:hover { background-color: #D56d11; }
         """)
 
         self.label_statut.setStyleSheet("color: #e74c3c; font-weight: bold; font-family: 'Courier New', monospace; border-radius: 8px; padding: 10px")
@@ -455,6 +505,7 @@ class StationControleWIL(QWidget):
         self.label_statut.setText("STATUT : DÉCONNECTÉ" if not self.langue else "STATUS : DISCONECTED")
         self.label_historique.setText("Historique" if not self.langue else "History")
         self.label_batterie.setText("Batterie" if not self.langue else "Battery")
+        self.label_pilotage.setText("FLIGHT CONTROLS" if self.langue else "\n COMMANDES DE VOL")
         
         # 3. Mise à jour du menu déroulant (Combo Box)
         current_idx = self.combo_objets.currentIndex()
@@ -495,6 +546,7 @@ class StationControleWIL(QWidget):
 
         # 8. Enregistrer le changement de langue
         self.sauvegarder_config()
+        
 
 
 
@@ -520,9 +572,9 @@ class StationControleWIL(QWidget):
 
         # Code pour convertir les coordonnées
         if coordonnees and not isinstance(coordonnees[0], QRect):
-            self.objets_detectes_detectes = [QRect(x, y, w, h) for (x, y, w, h) in coordonnees]
+            self.objets_detectes = [QRect(x, y, w, h) for (x, y, w, h) in coordonnees]
         else:
-            self.objets_detectes_detectes = coordonnees
+            self.objets_detectes = coordonnees
 
         self.label_compteur.setText(f"Objets détectés : {len(self.objets_detectes)}")
         self.dessiner_tout()
@@ -756,6 +808,24 @@ class StationControleWIL(QWidget):
             
         except Exception as e:
             print(f"Erreur historique : {e}")
+
+    def piloter(self, direction):
+        """
+        Gère les commandes de mouvement du drone
+        """
+        # Traduction du feedback selon la langue
+        msg = f"COMMANDE : {direction}"
+        if self.langue:
+            traductions = {"AVANCER": "FORWARD", "RECULER": "BACKWARD", 
+                          "GAUCHE": "LEFT", "DROITE": "RIGHT", "MONTER": "ASCEND"}
+            msg = f"COMMAND: {traductions.get(direction, direction)}"
+        
+        print(msg) # Pour vérifier dans la console
+        
+        # Mise à jour du label de statut pour un feedback visuel
+        self.label_statut.setText(msg)
+        self.label_statut.setStyleSheet("color: #3498db; font-weight: bold; border-radius: 8px; padding: 10px")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
