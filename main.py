@@ -2,6 +2,7 @@ import sys
 import sqlite3
 import csv
 import os
+import json
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QGraphicsDropShadowEffect, QComboBox
 from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont
 from PyQt6.QtCore import Qt, QRect, QVariantAnimation
@@ -22,7 +23,7 @@ class StationControleWIL(QWidget):
         self.image_originale = QPixmap()
         self.objets_detectes = []
         self.afficher_boxes = True
-        self.langue = False # False : français ; True : anglais
+        self.langue = self.charger_config() # False : français ; True : anglais
         self.chemin_image_actuelle = ""
         self.message_overlay = "Choisissez une image" # Message par défaut au démarrage
         
@@ -30,7 +31,31 @@ class StationControleWIL(QWidget):
         self.init_ui()
         self.appliquer_style_sombre()
 
-        
+        # --- APPLIQUER LES TEXTES TRADUITS DÈS LE DÉPART ---
+        if self.langue:
+            # On appelle une version légère de changer_langue pour forcer les textes anglais
+            self.langue = not self.langue # On ruse car changer_langue inverse le booléen
+            self.changer_langue()
+
+
+
+    def charger_config(self):
+        """Charge la langue depuis le fichier JSON, ou français par défaut"""
+        if os.path.exists("config.json"):
+            try:
+                with open("config.json", "r") as f:
+                    config = json.load(f)
+                    # On transforme la chaîne "en"/"fr" en booléen pour self.langue
+                    return config.get("langue") == "en"
+            except:
+                return False # Français par défaut en cas d'erreur
+        return False
+
+    def sauvegarder_config(self):
+        """Enregistre le choix de langue actuel dans le fichier JSON"""
+        config = {"langue": "en" if self.langue else "fr"}
+        with open("config.json", "w") as f:
+            json.dump(config, f)
         
     def init_base_de_donnees(self):
         """
@@ -460,6 +485,9 @@ class StationControleWIL(QWidget):
 
         # 7. Forcer le redessin du Radar ou de l'image
         self.dessiner_tout()
+
+        # 8. Enregistrer le changement de langue
+        self.sauvegarder_config()
 
 
 
