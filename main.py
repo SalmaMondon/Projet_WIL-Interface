@@ -13,7 +13,7 @@ from random import randint #Pour générer des coordonnées pour les tests
 class StationControleWIL(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Projet WIL - Interface")
+        self.setWindowTitle("WIL")
         self.resize(1000, 600)
         
         #Initialisation de la BDD
