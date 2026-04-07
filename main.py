@@ -22,6 +22,7 @@ class StationControleWIL(QWidget):
         self.image_originale = QPixmap()
         self.objets_detectes = []
         self.afficher_boxes = True
+        self.langue = False # False : français ; True : anglais
         self.chemin_image_actuelle = ""
         self.message_overlay = "Choisissez une image" # Message par défaut au démarrage
         
@@ -45,7 +46,7 @@ class StationControleWIL(QWidget):
                 altitude REAL,
                 nb_objets INTEGER,
                 coordonnees TEXT,
-                type_objet TEXT  -- <--- Nouvelle colonne
+                type_objet TEXT  
             )
         ''')
         self.conn.commit()
@@ -75,7 +76,8 @@ class StationControleWIL(QWidget):
         self.label_titre.setStyleSheet("font-weight: bold; font-size: 16px; color: #3498db;")
         layout_telemetrie.addWidget(self.label_titre)
 
-        layout_telemetrie.addWidget(QLabel("Batterie :"))
+        self.label_batterie = QLabel("Batterie :")
+        layout_telemetrie.addWidget(self.label_batterie)
         # --- WIDGET BATTERIE STYLE ---
         layout_batterie_container = QHBoxLayout() # Pour centrer la batterie
         
@@ -119,7 +121,7 @@ class StationControleWIL(QWidget):
         self.label_altitude.setStyleSheet("font-size: 20px; padding: 10px; background: #ecf0f1; border-radius: 5px;")
         layout_telemetrie.addWidget(self.label_altitude)
 
-        self.label_statut = QLabel("STATUT : DÉCONNECTÉ")
+        self.label_statut = QLabel("STATUT : DÉCONNECTÉ" if not self.langue else "STATUS : DISCONECTED")
         self.label_statut.setStyleSheet("color: red; font-weight: bold; font-family: 'Consolas', 'Courier New', monospace;")
         layout_telemetrie.addWidget(self.label_statut)
         
@@ -131,7 +133,8 @@ class StationControleWIL(QWidget):
         layout_global.addLayout(layout_telemetrie, stretch=1)
         
         self.layout_historique = QVBoxLayout()
-        self.layout_historique.addWidget(QLabel("Historique"))
+        self.label_historique = QLabel("Historique" if not self.langue else "History")
+        self.layout_historique.addWidget(self.label_historique)
 
         self.liste_historique = QListWidget()
         self.liste_historique.itemClicked.connect(self.charger_depuis_historique)
@@ -142,7 +145,8 @@ class StationControleWIL(QWidget):
         self.layout_historique.addWidget(self.btn_rapport)
 
         # --- MENU DÉROULANT DE SÉLECTION D'OBJET ---
-        layout_telemetrie.addWidget(QLabel("Type d'objet à détecter :"))
+        self.layout_type_objet = QLabel("Type d'objet à détecter :")
+        layout_telemetrie.addWidget(self.layout_type_objet)
         self.combo_objets = QComboBox()
         self.combo_objets.addItems(["Moutons", "Voitures", "Humains", "Bâtiments"])
         
@@ -195,10 +199,12 @@ class StationControleWIL(QWidget):
         
         self.btn_compter = QPushButton("Compter les objets")
         self.btn_toggle = QPushButton("Masquer les détections")
+        self.btn_langue = QPushButton("Switch to English")
 
         layout_commandes.addWidget(self.btn_image)
         layout_commandes.addWidget(self.btn_compter)
         layout_commandes.addWidget(self.btn_toggle)
+        layout_commandes.addWidget(self.btn_langue)
         
         layout_droite.addLayout(layout_commandes)
         
@@ -215,7 +221,8 @@ class StationControleWIL(QWidget):
         # ==========================================
         self.btn_image.clicked.connect(self.action_image)
         self.btn_compter.clicked.connect(self.action_compter)
-        self.btn_toggle.clicked.connect(self.toggle_overlay) # La fameuse ligne qui plantait !
+        self.btn_toggle.clicked.connect(self.toggle_overlay)
+        self.btn_langue.clicked.connect(self.changer_langue) 
 
 
 
@@ -354,10 +361,11 @@ class StationControleWIL(QWidget):
     def action_compter(self):
         """
         Permet de compter les objets en se basant sur l'analyse d'image.
-        Actuellement, comportement aléatoire"""
+        Actuellement, comportement aléatoire
+        """
         if self.image_originale.isNull() or not self.chemin_image_actuelle :
             # On change la variable et on redessine
-            self.message_overlay = "ERREUR : Chargez une image d'abord !"
+            self.message_overlay = ("ERREUR : Chargez une image d'abord !" if not self.langue else "ERROR : load a picture first !")
             self.dessiner_tout()
             return
         
@@ -373,7 +381,8 @@ class StationControleWIL(QWidget):
             nb_trouve = len(fausses_coordonnees) 
 
             # Mise à jour du compteur avec le nom de l'objet
-            self.label_compteur.setText(f"{type_objet} détectés : {nb_trouve}")
+            texte = f"{type_objet} detected: {nb_trouve}" if self.langue else f"{type_objet} détectés : {nb_trouve}"
+            self.label_compteur.setText(texte)
         
             #Affichage de l'altitude
             altitude_actuelle = round(randint(10, 50) + (randint(0, 9) / 10), 1)
@@ -396,9 +405,71 @@ class StationControleWIL(QWidget):
 
 
 
+    def changer_langue(self):
+        """
+        Bascule l'intégralité de l'interface entre le français et l'anglais
+        """
+        self.langue = not self.langue
+        
+        # 1. Textes des boutons
+        self.btn_langue.setText("Switch to English" if not self.langue else "Passer en français")
+        self.btn_compter.setText("Count objects" if self.langue else "Compter les objets")
+        self.btn_image.setText("Choose a picture" if self.langue else "Choisir une image")
+        self.btn_rapport.setText("Generate CSV report" if self.langue else "Générer un rapport CSV")
+        
+        # 2. Labels de structure
+        self.label_titre.setText("\n ONBOARD DATA" if self.langue else "\n DONNÉES DE BORD")
+        self.layout_type_objet.setText("Object type:" if self.langue else "Type d'objet à détecter :")
+        self.label_statut.setText("STATUT : DÉCONNECTÉ" if not self.langue else "STATUS : DISCONECTED")
+        self.label_historique.setText("Historique" if not self.langue else "History")
+        self.label_batterie.setText("Batterie" if not self.langue else "Battery")
+        
+        # 3. Mise à jour du menu déroulant (Combo Box)
+        current_idx = self.combo_objets.currentIndex()
+        self.combo_objets.clear()
+        if self.langue:
+            self.combo_objets.addItems(["Sheep", "Cars", "Humans", "Buildings"])
+        else:
+            self.combo_objets.addItems(["Moutons", "Voitures", "Humains", "Bâtiments"])
+        self.combo_objets.setCurrentIndex(current_idx)
+
+        # 4. Message du Radar (Overlay)
+        if self.message_overlay != "":
+            if "Choisissez" in self.message_overlay or "Choose" in self.message_overlay:
+                self.message_overlay = "Choose a picture" if self.langue else "Choisissez une image"
+            elif "ERREUR" in self.message_overlay or "ERROR" in self.message_overlay:
+                self.message_overlay = "ERROR: Load an image first!" if self.langue else "ERREUR : Chargez une image d'abord !"
+
+        # 5. Rafraîchir les labels dynamiques (Altitude et Compteur)
+        # On récupère la valeur actuelle pour changer juste le préfixe
+        try:
+            alt_val = float(self.label_altitude.text().split(":")[1].replace("m", "").strip())
+            
+            # Pour le compteur, on extrait juste le chiffre à la fin
+            nb_val = self.label_compteur.text().split(":")[-1].strip()
+            type_obj = self.combo_objets.currentText()
+            self.label_compteur.setText(f"Detected objetcs: {nb_val}" if self.langue else f"Objets détectés : {nb_val}")
+        except:
+            pass
+
+        # 6. Bouton Toggle (Masquer/Afficher)
+        if self.langue:
+            self.btn_toggle.setText("Hide detections" if self.afficher_boxes else "Display detections")
+        else:
+            self.btn_toggle.setText("Masquer les détections" if self.afficher_boxes else "Afficher les détections")
+
+        # 7. Forcer le redessin du Radar ou de l'image
+        self.dessiner_tout()
+
+
+
     def charger_nouvelle_image(self, chemin, coordonnees):
         """
-        Permet de charger une image et ses méthadonnées
+        Permet de charger une image et ses métadonnées
+
+        Entrée : 
+            - chemin (str) :chemin de l'image
+            - coordonnes (list ou Qrect) : liste des coordonnées des objets détectés    
         """
         self.image_originale = QPixmap(chemin)
         
@@ -535,6 +606,7 @@ class StationControleWIL(QWidget):
 
             painter.end()
 
+        #Redimensionnement
         pixmap_redim = image_a_afficher.scaled(
             self.canvas.width(), self.canvas.height(), 
             Qt.AspectRatioMode.KeepAspectRatio,
@@ -546,7 +618,13 @@ class StationControleWIL(QWidget):
 
     def enregistrer_capture(self, chemin, altitude, nb, type_objet): 
         """
-        Enregistre les image ste leur données dans la BDD
+        Enregistre les image et leur données dans la BDD
+
+        Entrée :
+            - chemin (str) : chemin pour accéder à l'image
+            - altitude (float) : altitude du drône
+            - nb (int) : nombre d'objets comptés
+            - type_objet (str) : type d'objets comptés (moutons, voitures...)
         """
         horodatage = datetime.now().strftime("%H:%M:%S")
         
@@ -591,7 +669,7 @@ class StationControleWIL(QWidget):
                 writer.writerows(data)
 
             # Mise à jour de l'UI
-            self.label_archive.setText(f"Rapport généré dans /rapports")
+            self.label_archive.setText(f"Rapport généré dans /rapports" if not self.langue else "Report generated in /rapports")
             self.label_archive.setStyleSheet("color: #2ecc71; font-weight: bold;")
 
         except Exception as e:
@@ -603,6 +681,9 @@ class StationControleWIL(QWidget):
     def charger_depuis_historique(self, item):
         """
         Pemret de charger une image depuis l'historique des analyses
+
+        Entrée :
+            - item (QListWidgetItem) : ligne de l'historique sur
         """
         texte_complet = item.text() 
         try:
