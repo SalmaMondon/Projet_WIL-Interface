@@ -171,27 +171,39 @@ class StationControleWIL(QWidget):
         self.btn_down  = QPushButton("▼")
         self.btn_left  = QPushButton("◀")
         self.btn_right = QPushButton("▶")
-        self.btn_ascend = QPushButton("🦋") # Texte court pour tenir au centre
+        self.btn_monter = QPushButton("▲\n|") 
+        self.btn_descendre = QPushButton("|\n▼")
 
         # 2. Style des boutons (on les fait carrés pour un beau rendu)
         style_bouton = "font-size: 18px; font-weight: bold; width: 45px; height: 45px; padding: 0px;"
-        for btn in [self.btn_up, self.btn_down, self.btn_left, self.btn_right, self.btn_ascend]:
+        for btn in [self.btn_up, self.btn_down, self.btn_left, self.btn_right, self.btn_descendre, self.btn_monter]:
             btn.setStyleSheet(style_bouton)
 
-        # Style spécifique pour le bouton central (couleur différente)
-        self.btn_ascend.setStyleSheet(style_bouton + "background-color: #e67e22; border-radius: 22px;") # Rond au centre !
+        # Style spécifique pour les bouton centraux
+        style_vertical = "font-size: 16px; font-weight: bold; width: 45px; height: 35px; padding: 0px;"
+        self.btn_monter.setStyleSheet(style_vertical + "background-color: #e67e22; border-top-left-radius: 20px; border-top-right-radius: 20px;")
+        self.btn_descendre.setStyleSheet(style_vertical + "background-color: #d35400; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;")
 
         # 3. Placement dans la Grille (Ligne, Colonne)
-        #       Col 0 | Col 1 | Col 2
+        #       Col 0  Col 1 | Col 2
         # L0 :        |  HAUT |       
         # L1 : GAUCHE | CENTRE| DROITE
         # L2 :        |  BAS  |       
         
         layout_fleches.addWidget(self.btn_up, 0, 1)     # Haut
         layout_fleches.addWidget(self.btn_left, 1, 0)   # Gauche
-        layout_fleches.addWidget(self.btn_ascend, 1, 1) # CENTRE (Altitude)
         layout_fleches.addWidget(self.btn_right, 1, 2)  # Droite
         layout_fleches.addWidget(self.btn_down, 2, 1)   # Bas
+
+        # 3. Placement dans la Grille (On divise la cellule centrale en deux)
+        # Au lieu d'un seul bouton en (1, 1), on crée un petit layout vertical pour le centre
+        layout_central_vertical = QVBoxLayout()
+        layout_central_vertical.setSpacing(2) # Espace minimal entre monter et descendre
+        layout_central_vertical.addWidget(self.btn_monter)
+        layout_central_vertical.addWidget(self.btn_descendre)
+
+        # On place ce sous-layout dans la case centrale de la grille
+        layout_fleches.addLayout(layout_central_vertical, 1, 1)
 
         layout_telemetrie.addLayout(layout_fleches)
 
@@ -314,8 +326,11 @@ class StationControleWIL(QWidget):
         self.btn_right.pressed.connect(lambda: self.piloter("DROITE"))
         self.btn_right.released.connect(self.reinitialiser_statut)
 
-        self.btn_ascend.pressed.connect(lambda: self.piloter("MONTER"))
-        self.btn_ascend.released.connect(self.reinitialiser_statut)
+        self.btn_monter.pressed.connect(lambda: self.piloter("MONTER"))
+        self.btn_monter.released.connect(self.reinitialiser_statut)
+
+        self.btn_descendre.pressed.connect(lambda: self.piloter("DESCENDRE"))
+        self.btn_descendre.released.connect(self.reinitialiser_statut)
 
 
 
@@ -434,23 +449,18 @@ class StationControleWIL(QWidget):
             QPushButton:hover { background-color: #850007; }
         """)
 
-        self.btn_ascend.setStyleSheet("""
-            QPushButton { 
-                background-color: #e67e22; 
-                border-radius: 22px; 
-                font-size: 18px; 
-                font-weight: bold; 
-                width: 45px; 
-                height: 45px; 
-                padding: 0px;
-            }
+        # Style pour le bouton MONTER
+        self.btn_monter.setStyleSheet("""
+            QPushButton { background-color: #e67e22; border-top-left-radius: 22px; border-top-right-radius: 22px; font-weight: bold; }
             QPushButton:hover { background-color: #D56d11; }
-            
-            /* AJOUT ICI pour le bouton orange */
-            QPushButton:pressed, QPushButton[down="true"] { 
-                background-color: #a05810;
-                padding-top: 4px; 
-            }
+            QPushButton:pressed, QPushButton[down="true"] { background-color: #a05810; padding-top: 5px; }
+        """)
+
+        # Style pour le bouton DESCENDRE
+        self.btn_descendre.setStyleSheet("""
+            QPushButton { background-color: #d35400; border-bottom-left-radius: 22px; border-bottom-right-radius: 22px; font-weight: bold; }
+            QPushButton:hover { background-color: #ba4a00; }
+            QPushButton:pressed, QPushButton[down="true"] { background-color: #873600; padding-top: 5px; }
         """)
 
         self.label_statut.setStyleSheet("color: #e74c3c; font-weight: bold; font-family: 'Courier New', monospace; border-radius: 8px; padding: 10px")
@@ -882,17 +892,22 @@ class StationControleWIL(QWidget):
             self.btn_right.setDown(True)
             self.piloter("DROITE")
         elif touche == Qt.Key.Key_Space:
-            self.btn_ascend.setDown(True)
+            self.btn_monter.setDown(True)
             self.piloter("MONTER")
+        elif touche == Qt.Key.Key_Control or touche == Qt.Key.Key_Shift:
+            self.btn_descendre.setDown(True)
+            self.piloter("DESCENDRE")
 
 
 
     def keyReleaseEvent(self, event):
-        """Gestion du clavier - Relâchement"""
+        """
+        Gestion du clavier - Relâchement
+        """
         if event.isAutoRepeat(): return
         
-        # On remet les boutons visuellement en position haute
-        for btn in [self.btn_up, self.btn_down, self.btn_left, self.btn_right, self.btn_ascend]:
+        # On réinitialise tous les boutons (incluant les deux nouveaux)
+        for btn in [self.btn_up, self.btn_down, self.btn_left, self.btn_right, self.btn_monter, self.btn_descendre]:
             btn.setDown(False)
             
         self.reinitialiser_statut()
