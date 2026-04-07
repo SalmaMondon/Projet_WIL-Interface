@@ -37,6 +37,9 @@ class StationControleWIL(QWidget):
             self.langue = not self.langue # On ruse car changer_langue inverse le booléen
             self.changer_langue()
 
+        #Focus sur le clavier
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
 
 
     def charger_config(self):
@@ -277,6 +280,15 @@ class StationControleWIL(QWidget):
         layout_global.addLayout(layout_droite, stretch=4)
         layout_global.addLayout(self.layout_historique, stretch=1)
         
+        # --- DÉSACTIVER LE FOCUS SUR TOUS LES BOUTONS ---
+        # Cela permet au clavier de toujours piloter le drone
+        for bouton in self.findChildren(QPushButton):
+            bouton.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        
+        # On fait de même pour la liste et le menu déroulant
+        self.liste_historique.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.combo_objets.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
         # Application de l'unique layout global à la fenêtre
         self.setLayout(layout_global)
         self.dessiner_tout() # Force l'affichage du radar au démarrage
@@ -290,11 +302,20 @@ class StationControleWIL(QWidget):
         self.btn_langue.clicked.connect(self.changer_langue) 
 
         # --- CONNEXION DES TOUCHES DE PILOTAGE ---
-        self.btn_up.clicked.connect(lambda: self.piloter("AVANCER"))
-        self.btn_down.clicked.connect(lambda: self.piloter("RECULER"))
-        self.btn_left.clicked.connect(lambda: self.piloter("GAUCHE"))
-        self.btn_right.clicked.connect(lambda: self.piloter("DROITE"))
-        self.btn_ascend.clicked.connect(lambda: self.piloter("MONTER"))
+        self.btn_up.pressed.connect(lambda: self.piloter("AVANCER"))
+        self.btn_up.released.connect(self.reinitialiser_statut)
+
+        self.btn_down.pressed.connect(lambda: self.piloter("RECULER"))
+        self.btn_down.released.connect(self.reinitialiser_statut)
+
+        self.btn_left.pressed.connect(lambda: self.piloter("GAUCHE"))
+        self.btn_left.released.connect(self.reinitialiser_statut)
+
+        self.btn_right.pressed.connect(lambda: self.piloter("DROITE"))
+        self.btn_right.released.connect(self.reinitialiser_statut)
+
+        self.btn_ascend.pressed.connect(lambda: self.piloter("MONTER"))
+        self.btn_ascend.released.connect(self.reinitialiser_statut)
 
 
 
@@ -809,22 +830,60 @@ class StationControleWIL(QWidget):
         except Exception as e:
             print(f"Erreur historique : {e}")
 
+
+
+    def keyPressEvent(self, event):
+        """Gestion du clavier - Appui"""
+        if event.isAutoRepeat(): return # Évite les bugs de répétition
+        
+        touche = event.key()
+        if touche == Qt.Key.Key_Up:
+            self.btn_up.setDown(True)
+            self.piloter("AVANCER")
+        elif touche == Qt.Key.Key_Down:
+            self.btn_down.setDown(True)
+            self.piloter("RECULER")
+        elif touche == Qt.Key.Key_Left:
+            self.btn_left.setDown(True)
+            self.piloter("GAUCHE")
+        elif touche == Qt.Key.Key_Right:
+            self.btn_right.setDown(True)
+            self.piloter("DROITE")
+        elif touche == Qt.Key.Key_Space:
+            self.btn_ascend.setDown(True)
+            self.piloter("MONTER")
+
+
+
+    def keyReleaseEvent(self, event):
+        """Gestion du clavier - Relâchement"""
+        if event.isAutoRepeat(): return
+        
+        # On remet les boutons visuellement en position haute
+        for btn in [self.btn_up, self.btn_down, self.btn_left, self.btn_right, self.btn_ascend]:
+            btn.setDown(False)
+            
+        self.reinitialiser_statut()
+
+
+
     def piloter(self, direction):
-        """
-        Gère les commandes de mouvement du drone
-        """
-        # Traduction du feedback selon la langue
+        """Affiche la commande active en bleu"""
         msg = f"COMMANDE : {direction}"
         if self.langue:
-            traductions = {"AVANCER": "FORWARD", "RECULER": "BACKWARD", 
-                          "GAUCHE": "LEFT", "DROITE": "RIGHT", "MONTER": "ASCEND"}
-            msg = f"COMMAND: {traductions.get(direction, direction)}"
+            trads = {"AVANCER":"FORWARD", "RECULER":"BACKWARD", "GAUCHE":"LEFT", "DROITE":"RIGHT", "MONTER":"ASCEND"}
+            msg = f"COMMAND: {trads.get(direction, direction)}"
         
-        print(msg) # Pour vérifier dans la console
-        
-        # Mise à jour du label de statut pour un feedback visuel
         self.label_statut.setText(msg)
-        self.label_statut.setStyleSheet("color: #3498db; font-weight: bold; border-radius: 8px; padding: 10px")
+        self.label_statut.setStyleSheet("color: #3498db; font-weight: bold; font-family: 'Courier New', monospace; padding: 10px")
+
+
+
+    def reinitialiser_statut(self):
+        """Revient au message par défaut en rouge"""
+        self.label_statut.setText("STATUS : DISCONNECTED" if self.langue else "STATUT : DÉCONNECTÉ")
+        self.label_statut.setStyleSheet("color: #e74c3c; font-weight: bold; font-family: 'Courier New', monospace; padding: 10px")
+
 
 
 if __name__ == "__main__":
