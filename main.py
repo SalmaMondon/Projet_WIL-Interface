@@ -224,7 +224,9 @@ class StationControleWIL(QWidget):
         
         self.btn_compter = QPushButton("Compter les objets")
         self.btn_toggle = QPushButton("Masquer les détections")
+
         self.btn_langue = QPushButton("Switch to English")
+        self.btn_langue.setStyleSheet("background-color: #960018; color: white; font-weight: bold; ")
 
         layout_commandes.addWidget(self.btn_image)
         layout_commandes.addWidget(self.btn_compter)
@@ -341,6 +343,11 @@ class StationControleWIL(QWidget):
         self.btn_image.setStyleSheet("""
             QPushButton { background-color: #2ecc71; color: white; font-family: 'Consolas', 'Courier New', monospace; font-weight: bold; border-radius: 8px; padding: 10px;}
             QPushButton:hover { background-color: #28b062; }
+        """)
+
+        self.btn_langue.setStyleSheet("""
+            QPushButton { background-color: #960018; color: white; font-family: 'Consolas', 'Courier New', monospace; font-weight: bold; border-radius: 8px; padding: 10px;}
+            QPushButton:hover { background-color: #850007; }
         """)
 
         self.label_statut.setStyleSheet("color: #e74c3c; font-weight: bold; font-family: 'Courier New', monospace; border-radius: 8px; padding: 10px")
