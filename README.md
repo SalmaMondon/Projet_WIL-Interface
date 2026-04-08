@@ -9,7 +9,7 @@
 ---
 
 ## 📝 Overview
-The WIL Ground Control Station is a graphical interface developed in Python (PyQt6) designed for monitoring and analyzing images captured by a surveillance airship. The tool features an object detection system (sheep, cars, etc.) with automatic database archiving.
+The WIL Ground Control Station is a graphical interface developed in Python (PyQt6) designed for monitoring and analyzing images captured by a surveillance airship. The tool features an object detection system (sheep, cars, etc.) with automatic database archiving. This interface is available in English and French.
 
 ---
 
@@ -41,6 +41,8 @@ The WIL Ground Control Station is a graphical interface developed in Python (PyQ
     - Automatic report export in CSV format.
 
     - Ability to reload previous captures from the history list.
+
+- **Manual piloting***: Allows you to control the drone remotely.
 
 ---
 

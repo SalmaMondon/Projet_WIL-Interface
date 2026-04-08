@@ -9,7 +9,7 @@
 ---
 
 ## 📝 Présentation 
-La Station de Contrôle WIL est une interface graphique développée en Python (PyQt6) permettant le suivi et l'analyse d'images capturées par un dirigeable de surveillance. L'outil intègre un système de détection d'objets (moutons, voitures, etc.) avec archivage automatique en base de données.
+La Station de Contrôle WIL est une interface graphique développée en Python (PyQt6) permettant le suivi et l'analyse d'images capturées par un dirigeable de surveillance. L'outil intègre un système de détection d'objets (moutons, voitures, etc.) avec archivage automatique en base de données. Cette interface est disponible en anglais et en français.
 
 ---
 
@@ -41,6 +41,8 @@ La Station de Contrôle WIL est une interface graphique développée en Python (
     - Exportation automatique des rapports au format CSV.
 
     - Rechargement d'anciennes captures depuis l'historique.
+
+- **Pilotage manuel*** : Permet de diriger le drone à distance.
 
 ---
 
