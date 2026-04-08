@@ -2,13 +2,21 @@ import sys
 import sqlite3
 import csv
 import os
+import ctypes
 import json
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QGraphicsDropShadowEffect, QComboBox, QGridLayout
-from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont, QCursor
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QGraphicsDropShadowEffect, QComboBox, QGridLayout 
+from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont, QCursor, QIcon
 from PyQt6.QtCore import Qt, QRect, QVariantAnimation, QObject, QEvent
 from PyQt6.QtWidgets import QListWidget
 from datetime import datetime
 from random import randint #Pour générer des coordonnées pour les tests
+
+# Ce code permet à Windows d'afficher l'icône personnalisée dans la barre des tâches
+try:
+    myappid = 'mon_projet.drone_wil.station.v0.1' # Un nom unique
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+except Exception:
+    pass
 
 class FiltreCurseurLockOn(QObject):
     """
@@ -33,10 +41,33 @@ class FiltreCurseurLockOn(QObject):
     
 
 
+def resource_path(relative_path):
+        """ 
+        Calcule le chemin absolu vers la ressource, compatible PyInstaller
+
+        Entrée :
+            relative_path (str) : chemin relatif
+        """
+        # Si l'app est lancée via le .exe, sys._MEIPASS pointe vers le dossier de l'app (qui inclut _internal)
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        
+        # Pour les versions récentes de PyInstaller en mode --onedir :
+        # Si le dossier n'est pas trouvé à la racine, on tente dans _internal
+        path_normal = os.path.join(base_path, relative_path)
+        if not os.path.exists(path_normal):
+            path_internal = os.path.join(base_path, "_internal", relative_path)
+            if os.path.exists(path_internal):
+                return path_internal
+                
+        return path_normal
+
+
+
 class StationControleWIL(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("WIL")
+        self.setWindowIcon(QIcon(resource_path("assets/logo.ico")))
         self.resize(1000, 600)
         self.setCursor(Qt.CursorShape.CrossCursor)
         
@@ -142,7 +173,7 @@ class StationControleWIL(QWidget):
         layout_telemetrie = QVBoxLayout()
 
         self.label_logo = QLabel()
-        pixmap_logo = QPixmap("assets/logo_wil_quedar.png") 
+        pixmap_logo = QPixmap(resource_path("assets/logo_wil_quedar.png")) 
         # On le redimensionne pour qu'il ne prenne pas toute la place (ex: 200px de large)
         self.label_logo.setPixmap(pixmap_logo.scaled(200, 200, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         self.label_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -689,7 +720,6 @@ class StationControleWIL(QWidget):
         
 
 
-
     def charger_nouvelle_image(self, chemin, coordonnees):
         """
         Permet de charger une image et ses métadonnées
@@ -764,7 +794,7 @@ class StationControleWIL(QWidget):
 
             # --- 2. DESSIN DU LOGO (FILIGRANE) ---
             # Attention au nom du fichier ici ! 
-            pixmap_logo = QPixmap("assets/logo_wil_quedar_radar.png") 
+            pixmap_logo = QPixmap(resource_path("assets/logo_wil_quedar_radar.png"))
             if not pixmap_logo.isNull():
                 painter.setOpacity(0.2)
                 logo_redim = pixmap_logo.scaled(300, 300, Qt.AspectRatioMode.KeepAspectRatio)
