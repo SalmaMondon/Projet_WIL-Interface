@@ -4,7 +4,7 @@ import csv
 import os
 import json
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QGraphicsDropShadowEffect, QComboBox, QGridLayout
-from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont
+from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QRect, QVariantAnimation
 from PyQt6.QtWidgets import QListWidget
 from datetime import datetime
@@ -15,6 +15,7 @@ class StationControleWIL(QWidget):
         super().__init__()
         self.setWindowTitle("WIL")
         self.resize(1000, 600)
+        self.setCursor(Qt.CursorShape.CrossCursor)
         
         #Initialisation de la BDD
         self.init_base_de_donnees()
@@ -30,6 +31,7 @@ class StationControleWIL(QWidget):
         # Lancement de la construction de l'interface
         self.init_ui()
         self.appliquer_style_sombre()
+        self.appliquer_curseur_perso()
 
         # --- APPLIQUER LES TEXTES TRADUITS DÈS LE DÉPART ---
         if self.langue:
@@ -171,8 +173,11 @@ class StationControleWIL(QWidget):
         self.btn_down  = QPushButton("▼")
         self.btn_left  = QPushButton("◀")
         self.btn_right = QPushButton("▶")
-        self.btn_monter = QPushButton("▲\n|") 
-        self.btn_descendre = QPushButton("|\n▼")
+        self.btn_monter = QPushButton("▲") 
+        self.btn_descendre = QPushButton("▼")
+
+        self.btn_monter.setFixedSize(50, 25)
+        self.btn_descendre.setFixedSize(50, 25)
 
         # 2. Style des boutons (on les fait carrés pour un beau rendu)
         style_bouton = "font-size: 18px; font-weight: bold; width: 45px; height: 45px; padding: 0px;"
@@ -196,14 +201,15 @@ class StationControleWIL(QWidget):
         layout_fleches.addWidget(self.btn_down, 2, 1)   # Bas
 
         # 3. Placement dans la Grille (On divise la cellule centrale en deux)
-        # Au lieu d'un seul bouton en (1, 1), on crée un petit layout vertical pour le centre
-        layout_central_vertical = QVBoxLayout()
-        layout_central_vertical.setSpacing(2) # Espace minimal entre monter et descendre
-        layout_central_vertical.addWidget(self.btn_monter)
-        layout_central_vertical.addWidget(self.btn_descendre)
+        # On utilise un layout vertical très serré pour les coller
+        layout_central = QVBoxLayout()
+        layout_central.setSpacing(0) # Zéro espace pour l'effet "bloc unique"
+        layout_central.setContentsMargins(0, 0, 0, 0)
+        layout_central.addWidget(self.btn_monter)
+        layout_central.addWidget(self.btn_descendre)
 
-        # On place ce sous-layout dans la case centrale de la grille
-        layout_fleches.addLayout(layout_central_vertical, 1, 1)
+        # On place ce bloc au centre (ligne 1, colonne 1)
+        layout_fleches.addLayout(layout_central, 1, 1, Qt.AlignmentFlag.AlignCenter)
 
         layout_telemetrie.addLayout(layout_fleches)
 
@@ -332,6 +338,14 @@ class StationControleWIL(QWidget):
         self.btn_descendre.pressed.connect(lambda: self.piloter("DESCENDRE"))
         self.btn_descendre.released.connect(self.reinitialiser_statut)
 
+        # Appliquer le curseur "Main" à tous les boutons de l'application
+        for bouton in self.findChildren(QPushButton):
+            bouton.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        # On peut aussi le faire pour la liste et le menu déroulant
+        self.combo_objets.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.liste_historique.setCursor(Qt.CursorShape.PointingHandCursor)
+
 
 
     # ==========================================
@@ -449,18 +463,40 @@ class StationControleWIL(QWidget):
             QPushButton:hover { background-color: #850007; }
         """)
 
-        # Style pour le bouton MONTER
+       # --- STYLE BOUTON MONTER (Bleu Cyan) ---
         self.btn_monter.setStyleSheet("""
-            QPushButton { background-color: #e67e22; border-top-left-radius: 22px; border-top-right-radius: 22px; font-weight: bold; }
-            QPushButton:hover { background-color: #D56d11; }
-            QPushButton:pressed, QPushButton[down="true"] { background-color: #a05810; padding-top: 5px; }
+            QPushButton { 
+                background-color: #00d2ff;
+                color: #1e1e2e;
+                border-top-left-radius: 15px; 
+                border-top-right-radius: 15px;
+                border: 1px solid #00bcff;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover { background-color: #70e1ff; }
+            QPushButton:pressed, QPushButton[down="true"] { 
+                background-color: #0086a8; 
+                padding-top: 3px; 
+            }
         """)
 
-        # Style pour le bouton DESCENDRE
+        # --- STYLE BOUTON DESCENDRE (Bleu Foncé / Cobalt) ---
         self.btn_descendre.setStyleSheet("""
-            QPushButton { background-color: #d35400; border-bottom-left-radius: 22px; border-bottom-right-radius: 22px; font-weight: bold; }
-            QPushButton:hover { background-color: #ba4a00; }
-            QPushButton:pressed, QPushButton[down="true"] { background-color: #873600; padding-top: 5px; }
+            QPushButton { 
+                background-color: #3a4df0;
+                color: white;
+                border-bottom-left-radius: 15px; 
+                border-bottom-right-radius: 15px;
+                border: 1px solid #2a3bc0;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover { background-color: #5d6df5; }
+            QPushButton:pressed, QPushButton[down="true"] { 
+                background-color: #1e2a8a; 
+                padding-top: 3px; 
+            }
         """)
 
         self.label_statut.setStyleSheet("color: #e74c3c; font-weight: bold; font-family: 'Courier New', monospace; border-radius: 8px; padding: 10px")
@@ -931,6 +967,32 @@ class StationControleWIL(QWidget):
         self.label_statut.setText("STATUS : DISCONNECTED" if self.langue else "STATUT : DÉCONNECTÉ")
         self.label_statut.setStyleSheet("color: #e74c3c; font-weight: bold; font-family: 'Courier New', monospace; padding: 10px")
 
+    def appliquer_curseur_perso(self):
+        """Crée et applique un viseur bleu néon comme curseur par défaut"""
+        # 1. Création du dessin (Pixmap)
+        pixmap = QPixmap(32, 32) # Taille standard pour un curseur
+        pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # 2. Dessin du style "Viseur de Drone"
+        pen = QPen(QColor("#00d2ff"), 2) # Bleu néon
+        painter.setPen(pen)
+        
+        # Dessine un petit cercle central
+        painter.drawEllipse(12, 12, 8, 8) 
+        # Dessine les axes du viseur
+        painter.drawLine(16, 4, 16, 10)  # Haut
+        painter.drawLine(16, 22, 16, 28) # Bas
+        painter.drawLine(4, 16, 10, 16)  # Gauche
+        painter.drawLine(22, 16, 28, 16) # Droite
+        
+        painter.end()
+        
+        # 3. Application (le point "chaud" est à 16,16 : le centre exact du viseur)
+        curseur_viseur = QCursor(pixmap, 16, 16)
+        self.setCursor(curseur_viseur)
 
 
 if __name__ == "__main__":
