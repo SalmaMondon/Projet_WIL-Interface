@@ -42,7 +42,7 @@ La Station de Contrôle WIL est une interface graphique développée en Python (
 
     - Rechargement d'anciennes captures depuis l'historique.
 
-- **Pilotage manuel*** : Permet de diriger le drone à distance.
+- **Pilotage manuel*** : Permet de diriger le drone à distance en cliquant sur l'interface ou en utilisant les touches flèches, shift et espace
 
 ---
 

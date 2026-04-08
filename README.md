@@ -42,7 +42,7 @@ The WIL Ground Control Station is a graphical interface developed in Python (PyQ
 
     - Ability to reload previous captures from the history list.
 
-- **Manual piloting***: Allows you to control the drone remotely.
+- **Manual piloting***: Allows you to control the drone remotely by clicking on the interface or by using the arrow, shift and space keys.
 
 ---
 
