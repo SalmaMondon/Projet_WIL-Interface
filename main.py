@@ -5,10 +5,33 @@ import os
 import json
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QGraphicsDropShadowEffect, QComboBox, QGridLayout
 from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont, QCursor
-from PyQt6.QtCore import Qt, QRect, QVariantAnimation
+from PyQt6.QtCore import Qt, QRect, QVariantAnimation, QObject, QEvent
 from PyQt6.QtWidgets import QListWidget
 from datetime import datetime
 from random import randint #Pour générer des coordonnées pour les tests
+
+class FiltreCurseurLockOn(QObject):
+    """
+    Classe utilitaire pour changer le curseur au survol d'un widget
+    """
+    def __init__(self, curseur_hover, parent=None):
+        super().__init__(parent)
+        self.curseur_hover = curseur_hover
+
+    def eventFilter(self, obj, event):
+        # Quand la souris ENTRE dans le widget
+        if event.type() == QEvent.Type.Enter:
+            obj.setCursor(self.curseur_hover)
+            return True # Événement géré
+
+        # Quand la souris SORT du widget (il reprendra le curseur de son parent)
+        elif event.type() == QEvent.Type.Leave:
+            obj.unsetCursor() # Remet le curseur par défaut
+            return True
+            
+        return super().eventFilter(obj, event)
+    
+
 
 class StationControleWIL(QWidget):
     def __init__(self):
@@ -31,7 +54,22 @@ class StationControleWIL(QWidget):
         # Lancement de la construction de l'interface
         self.init_ui()
         self.appliquer_style_sombre()
+        
+        # --- 1. CRÉATION DES CURSEURS ---
         self.appliquer_curseur_perso()
+        
+        # --- 2. CRÉATION DU FILTRE "LOCK-ON" ---
+        # On lui donne le curseur rouge stocké
+        self.filtre_lockon = FiltreCurseurLockOn(self.curseur_rouge, self)
+        
+        # --- 3. APPLICATION DU FILTRE SUR CHAQUE BOUTON ---
+        # Tous les enfants de type QPushButton utiliseront ce filtre
+        for bouton in self.findChildren(QPushButton):
+            bouton.installEventFilter(self.filtre_lockon)
+            
+        # N'oublie pas le menu déroulant et la liste
+        self.combo_objets.installEventFilter(self.filtre_lockon)
+        self.liste_historique.installEventFilter(self.filtre_lockon)
 
         # --- APPLIQUER LES TEXTES TRADUITS DÈS LE DÉPART ---
         if self.langue:
@@ -45,7 +83,9 @@ class StationControleWIL(QWidget):
 
 
     def charger_config(self):
-        """Charge la langue depuis le fichier JSON, ou français par défaut"""
+        """
+        Charge la langue depuis le fichier JSON, ou français par défaut
+        """
         if os.path.exists("config.json"):
             try:
                 with open("config.json", "r") as f:
@@ -56,12 +96,18 @@ class StationControleWIL(QWidget):
                 return False # Français par défaut en cas d'erreur
         return False
 
+
+
     def sauvegarder_config(self):
-        """Enregistre le choix de langue actuel dans le fichier JSON"""
+        """
+        Enregistre le choix de langue actuel dans le fichier JSON
+        """
         config = {"langue": "en" if self.langue else "fr"}
         with open("config.json", "w") as f:
             json.dump(config, f)
         
+
+
     def init_base_de_donnees(self):
         """
         Création de la base de donnée ou utilisation de l'ancienne si elle existe déjà
@@ -338,14 +384,6 @@ class StationControleWIL(QWidget):
         self.btn_descendre.pressed.connect(lambda: self.piloter("DESCENDRE"))
         self.btn_descendre.released.connect(self.reinitialiser_statut)
 
-        # Appliquer le curseur "Main" à tous les boutons de l'application
-        for bouton in self.findChildren(QPushButton):
-            bouton.setCursor(Qt.CursorShape.PointingHandCursor)
-        
-        # On peut aussi le faire pour la liste et le menu déroulant
-        self.combo_objets.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.liste_historique.setCursor(Qt.CursorShape.PointingHandCursor)
-
 
 
     # ==========================================
@@ -379,6 +417,9 @@ class StationControleWIL(QWidget):
     def mettre_a_jour_label_altitude(self, valeur):
         """
         Affichage de la valeur de l'altitude
+
+        Entrée :
+            -valeur (float) : valeur de l'altitude
         """
         self.label_altitude.setText(f"Altitude : {valeur:.1f} m")
 
@@ -911,7 +952,12 @@ class StationControleWIL(QWidget):
 
 
     def keyPressEvent(self, event):
-        """Gestion du clavier - Appui"""
+        """
+        Gestion du clavier - Appui
+
+        Entrée :
+            - event : touche préssée
+        """
         if event.isAutoRepeat(): return # Évite les bugs de répétition
         
         touche = event.key()
@@ -939,6 +985,9 @@ class StationControleWIL(QWidget):
     def keyReleaseEvent(self, event):
         """
         Gestion du clavier - Relâchement
+
+        Entrée :
+            - event : touche préssée
         """
         if event.isAutoRepeat(): return
         
@@ -951,7 +1000,9 @@ class StationControleWIL(QWidget):
 
 
     def piloter(self, direction):
-        """Affiche la commande active en bleu"""
+        """
+        Affiche la commande active en bleu
+        """
         msg = f"COMMANDE : {direction}"
         if self.langue:
             trads = {"AVANCER":"FORWARD", "RECULER":"BACKWARD", "GAUCHE":"LEFT", "DROITE":"RIGHT", "MONTER":"ASCEND"}
@@ -963,36 +1014,59 @@ class StationControleWIL(QWidget):
 
 
     def reinitialiser_statut(self):
-        """Revient au message par défaut en rouge"""
+        """
+        Revient au message par défaut en rouge
+        """
         self.label_statut.setText("STATUS : DISCONNECTED" if self.langue else "STATUT : DÉCONNECTÉ")
         self.label_statut.setStyleSheet("color: #e74c3c; font-weight: bold; font-family: 'Courier New', monospace; padding: 10px")
 
     def appliquer_curseur_perso(self):
-        """Crée et applique un viseur bleu néon comme curseur par défaut"""
-        # 1. Création du dessin (Pixmap)
-        pixmap = QPixmap(32, 32) # Taille standard pour un curseur
-        pixmap.fill(Qt.GlobalColor.transparent)
+        """
+        Crée et applique le viseur de base (bleu) et prépare la version rouge
+        """
+        # 1. Taille standard pour un curseur
+        taille = 32
+        pixmap_base = QPixmap(taille, taille)
+        pixmap_base.fill(Qt.GlobalColor.transparent)
         
-        painter = QPainter(pixmap)
+        # --- DESSIN DU VISEUR DE BASE (BLEU NÉON) ---
+        painter = QPainter(pixmap_base)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # 2. Dessin du style "Viseur de Drone"
-        pen = QPen(QColor("#00d2ff"), 2) # Bleu néon
-        painter.setPen(pen)
-        
-        # Dessine un petit cercle central
-        painter.drawEllipse(12, 12, 8, 8) 
-        # Dessine les axes du viseur
-        painter.drawLine(16, 4, 16, 10)  # Haut
-        painter.drawLine(16, 22, 16, 28) # Bas
-        painter.drawLine(4, 16, 10, 16)  # Gauche
-        painter.drawLine(22, 16, 28, 16) # Droite
-        
+        pen_bleu = QPen(QColor("#00d2ff"), 2) # Bleu néon
+        painter.setPen(pen_bleu)
+        painter.drawEllipse(12, 12, 8, 8) # Petit cercle central
+        # Axes du viseur
+        painter.drawLine(16, 4, 16, 10)   # Haut
+        painter.drawLine(16, 22, 16, 28)  # Bas
+        painter.drawLine(4, 16, 10, 16)   # Gauche
+        painter.drawLine(22, 16, 28, 16)  # Droite
         painter.end()
         
-        # 3. Application (le point "chaud" est à 16,16 : le centre exact du viseur)
-        curseur_viseur = QCursor(pixmap, 16, 16)
-        self.setCursor(curseur_viseur)
+        # Stocke le curseur bleu par défaut pour la fenêtre
+        self.curseur_bleu = QCursor(pixmap_base, 16, 16)
+        self.setCursor(self.curseur_bleu)
+
+        # --- DESSIN DU VISEUR CLIC (ROUGE "LOCK-ON") ---
+        # On crée une copie exacte mais on change la couleur
+        pixmap_clic = QPixmap(taille, taille)
+        pixmap_clic.fill(Qt.GlobalColor.transparent)
+        
+        painter_clic = QPainter(pixmap_clic)
+        painter_clic.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        pen_rouge = QPen(QColor("#ff4757"), 3) # Rouge vif, légèrement plus épais
+        painter_clic.setPen(pen_rouge)
+        painter_clic.drawEllipse(10, 10, 12, 12) # Cercle central un peu plus grand
+        # Axes du viseur
+        painter_clic.drawLine(16, 2, 16, 12)   # Haut
+        painter_clic.drawLine(16, 20, 16, 30)  # Bas
+        painter_clic.drawLine(2, 16, 12, 16)   # Gauche
+        painter_clic.drawLine(20, 16, 30, 16)  # Droite
+        painter_clic.end()
+        
+        # Stocke le curseur rouge pour l'utiliser lors du survol
+        self.curseur_rouge = QCursor(pixmap_clic, 16, 16)
 
 
 if __name__ == "__main__":
