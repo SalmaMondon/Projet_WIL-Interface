@@ -127,9 +127,9 @@ def appliquer_effets_neon(label_compteur, label_altitude):
     label_compteur.setStyleSheet(label_compteur.styleSheet() + style_transparent)
     label_altitude.setStyleSheet(label_altitude.styleSheet() + style_transparent)
 
-    # --- Néon Vert ---
+    # --- Néon Blanc ---
     neon_vert = QGraphicsDropShadowEffect()
-    neon_vert.setColor(QColor(166, 227, 161, 255)) # Vert menthe
+    neon_vert.setColor(QColor(255, 255, 255, 255)) # Blanc d'ordre supérieur
     neon_vert.setBlurRadius(25) # Rayon du flou pour l'effet halo
     neon_vert.setOffset(0, 0)   # 0,0 pour que l'ombre soit centrée derrière le texte
     label_compteur.setGraphicsEffect(neon_vert)
