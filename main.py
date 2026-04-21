@@ -248,7 +248,7 @@ class StationControleWIL(QWidget):
         # Compteur
         self.label_compteur = QLabel("Objets détectés : 0")
         self.label_compteur.setStyleSheet("""
-            font-size: 24px; font-weight: bold; color: #27ae60; 
+            font-size: 24px; font-weight: bold; color: #ffffff; 
             background: rgba(255, 255, 255, 150); border-radius: 10px;
         """)
         self.label_compteur.setAlignment(Qt.AlignmentFlag.AlignCenter)
