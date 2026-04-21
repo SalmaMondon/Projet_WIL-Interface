@@ -92,7 +92,9 @@ STYLE_GAUCHE = STYLE_PILOTAGE_BASE.format(
 # --- FONCTIONS DE CRÉATION GRAPHIQUE ---
 
 def creer_curseurs():
-    """Crée et retourne les deux curseurs (bleu et rouge)."""
+    """
+    Crée et retourne les deux curseurs (bleu et rouge).
+    """
     taille = 32
     
     # --- CURSEUR BLEU ---
@@ -120,7 +122,9 @@ def creer_curseurs():
     return QCursor(pix_bleu, 16, 16), QCursor(pix_rouge, 16, 16)
 
 def appliquer_effets_neon(label_compteur, label_altitude):
-    """Applique les effets de lueur et assure la transparence du fond."""
+    """
+    Applique les effets de lueur et assure la transparence du fond.
+    """
     
     # --- Style pour supprimer tout cadre ou fond ---
     style_transparent = "background: transparent; border: none;"

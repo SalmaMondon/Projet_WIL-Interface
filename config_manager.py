@@ -4,7 +4,9 @@ import os
 CONFIG_FILE = "config.json"
 
 def charger_configuration():
-    """Charge la langue depuis le JSON, retourne True si 'en', False sinon."""
+    """
+    Charge la langue depuis le JSON, retourne True si 'en', False sinon.
+    """
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r") as f:
@@ -15,7 +17,9 @@ def charger_configuration():
     return False
 
 def sauvegarder_configuration(est_anglais):
-    """Enregistre le choix de langue (booléen) dans le JSON."""
+    """
+    Enregistre le choix de langue (booléen) dans le JSON.
+    """
     config = {"langue": "en" if est_anglais else "fr"}
     try:
         with open(CONFIG_FILE, "w") as f:

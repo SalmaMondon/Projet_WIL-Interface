@@ -10,7 +10,9 @@ class DatabaseManager:
         self.init_db()
 
     def init_db(self):
-        """Crée la table si elle n'existe pas."""
+        """
+        Crée la table si elle n'existe pas.
+        """
         cursor = self.conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS missions (
@@ -26,7 +28,9 @@ class DatabaseManager:
         self.conn.commit()
 
     def sauvegarder_mission(self, chemin, altitude, nb, type_objet, objets_detectes):
-        """Enregistre une capture et retourne l'horodatage pour l'UI."""
+        """
+        Enregistre une capture et retourne l'horodatage pour l'UI.
+        """
         horodatage = datetime.now().strftime("%H:%M:%S")
         
         # Transformation des QRect en chaîne de caractères
@@ -43,7 +47,9 @@ class DatabaseManager:
         return horodatage # On renvoie l'heure pour que l'UI puisse l'afficher
 
     def exporter_csv(self, est_anglais):
-        """Génère le rapport CSV. Retourne le chemin du fichier ou lève une exception."""
+        """
+        Génère le rapport CSV. Retourne le chemin du fichier ou lève une exception.
+        """
         dossier_sortie = "rapports"
         if not os.path.exists(dossier_sortie):
             os.makedirs(dossier_sortie)

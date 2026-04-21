@@ -537,6 +537,8 @@ class StationControleWIL(QWidget):
         # On enregistre via le manager
         sauvegarder_configuration(self.langue)
         
+
+        
     def appliquer_textes_langue(self):
         """
         Change la languedes textes
