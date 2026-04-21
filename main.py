@@ -1,14 +1,14 @@
 import sys
-import sqlite3
-import csv
-import os
 import ctypes
-import json
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QGraphicsDropShadowEffect, QComboBox, QGridLayout 
-from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont, QCursor, QIcon
-from PyQt6.QtCore import Qt, QRect, QVariantAnimation, QObject, QEvent
+import style
+from database_manager import DatabaseManager
+from config_manager import charger_configuration, sauvegarder_configuration
+from filtreCurseurLockOn import FiltreCurseurLockOn
+from resource_path import resource_path
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QComboBox, QGridLayout 
+from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont, QIcon
+from PyQt6.QtCore import Qt, QRect, QVariantAnimation
 from PyQt6.QtWidgets import QListWidget
-from datetime import datetime
 from random import randint #Pour générer des coordonnées pour les tests
 
 # Ce code permet à Windows d'afficher l'icône personnalisée dans la barre des tâches
@@ -17,51 +17,6 @@ try:
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 except Exception:
     pass
-
-class FiltreCurseurLockOn(QObject):
-    """
-    Classe utilitaire pour changer le curseur au survol d'un widget
-    """
-    def __init__(self, curseur_hover, parent=None):
-        super().__init__(parent)
-        self.curseur_hover = curseur_hover
-
-    def eventFilter(self, obj, event):
-        # Quand la souris ENTRE dans le widget
-        if event.type() == QEvent.Type.Enter:
-            obj.setCursor(self.curseur_hover)
-            return True # Événement géré
-
-        # Quand la souris SORT du widget (il reprendra le curseur de son parent)
-        elif event.type() == QEvent.Type.Leave:
-            obj.unsetCursor() # Remet le curseur par défaut
-            return True
-            
-        return super().eventFilter(obj, event)
-    
-
-
-def resource_path(relative_path):
-        """ 
-        Calcule le chemin absolu vers la ressource, compatible PyInstaller
-
-        Entrée :
-            relative_path (str) : chemin relatif
-        """
-        # Si l'app est lancée via le .exe, sys._MEIPASS pointe vers le dossier de l'app (qui inclut _internal)
-        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        
-        # Pour les versions récentes de PyInstaller en mode --onedir :
-        # Si le dossier n'est pas trouvé à la racine, on tente dans _internal
-        path_normal = os.path.join(base_path, relative_path)
-        if not os.path.exists(path_normal):
-            path_internal = os.path.join(base_path, "_internal", relative_path)
-            if os.path.exists(path_internal):
-                return path_internal
-                
-        return path_normal
-
-
 
 class StationControleWIL(QWidget):
     def __init__(self):
@@ -72,22 +27,26 @@ class StationControleWIL(QWidget):
         self.setCursor(Qt.CursorShape.CrossCursor)
         
         #Initialisation de la BDD
-        self.init_base_de_donnees()
+        self.db = DatabaseManager("projet_wil.db")
         
         # Variables pour l'image et Mael
         self.image_originale = QPixmap()
         self.objets_detectes = []
         self.afficher_boxes = True
-        self.langue = self.charger_config() # False : français ; True : anglais
+        self.langue = charger_configuration() # False : français ; True : anglais
         self.chemin_image_actuelle = ""
         self.message_overlay = "Choisissez une image" # Message par défaut au démarrage
         
         # Lancement de la construction de l'interface
         self.init_ui()
         self.appliquer_style_sombre()
+        self.appliquer_textes_langue()
+        self.curseur_bleu, self.curseur_rouge = style.creer_curseurs()
+        self.filtre_lockon = FiltreCurseurLockOn(self.curseur_rouge)
         
         # --- 1. CRÉATION DES CURSEURS ---
         self.appliquer_curseur_perso()
+        self.configurer_interactions_souris()
         
         # --- 2. CRÉATION DU FILTRE "LOCK-ON" ---
         # On lui donne le curseur rouge stocké
@@ -111,54 +70,7 @@ class StationControleWIL(QWidget):
         #Focus sur le clavier
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
-
-
-    def charger_config(self):
-        """
-        Charge la langue depuis le fichier JSON, ou français par défaut
-        """
-        if os.path.exists("config.json"):
-            try:
-                with open("config.json", "r") as f:
-                    config = json.load(f)
-                    # On transforme la chaîne "en"/"fr" en booléen pour self.langue
-                    return config.get("langue") == "en"
-            except:
-                return False # Français par défaut en cas d'erreur
-        return False
-
-
-
-    def sauvegarder_config(self):
-        """
-        Enregistre le choix de langue actuel dans le fichier JSON
-        """
-        config = {"langue": "en" if self.langue else "fr"}
-        with open("config.json", "w") as f:
-            json.dump(config, f)
         
-
-
-    def init_base_de_donnees(self):
-        """
-        Création de la base de donnée ou utilisation de l'ancienne si elle existe déjà
-        """
-        self.conn = sqlite3.connect("projet_wil.db")
-        cursor = self.conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS missions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                horodatage TEXT,
-                chemin_image TEXT,
-                altitude REAL,
-                nb_objets INTEGER,
-                coordonnees TEXT,
-                type_objet TEXT  
-            )
-        ''')
-        self.conn.commit()
-
-
 
     def init_ui(self):
         """
@@ -416,6 +328,31 @@ class StationControleWIL(QWidget):
         self.btn_descendre.released.connect(self.reinitialiser_statut)
 
 
+    def configurer_interactions_souris(self):
+        """
+        Applique le curseur par défaut et branche le filtre rouge sur les boutons
+        """
+        # Curseur bleu pour toute la fenêtre
+        self.setCursor(self.curseur_bleu)
+        self.combo_objets.setCursor(self.curseur_bleu)
+        
+        # Liste des boutons qui doivent 'réagir' au survol
+        boutons_tactiques = [
+            self.btn_monter, self.btn_descendre, 
+            self.btn_up, self.btn_down,
+            self.btn_right, self.btn_left,
+            self.btn_image, self.btn_compter,
+            self.btn_langue, self.btn_rapport,
+            self.combo_objets 
+        ]
+
+        # Force le curseur sur la liste qui descend
+        self.combo_objets.view().setCursor(self.curseur_bleu)
+        
+        # On boucle pour éviter de répéter 'installEventFilter' 8 fois
+        for btn in boutons_tactiques:
+            btn.installEventFilter(self.filtre_lockon)
+
 
     # ==========================================
     # 5. FONCTIONS LOGIQUES
@@ -497,97 +434,27 @@ class StationControleWIL(QWidget):
         """
         Définis le style sombre globale de l'interface
         """
-        # 1. STYLE GLOBAL SOMBRE
-        # 1. STYLE GLOBAL SOMBRE
-        self.setStyleSheet("""
-            QWidget { background-color: #1e1e2e; color: #cdd6f4; font-family: 'Consolas', 'Courier New', monospace; }
-            
-            QPushButton {
-                background-color: #34495e; 
-                color: white; 
-                font-weight: bold; 
-                border-radius: 8px; 
-                padding: 10px;
-                border: none;
-            }
-            
-            QPushButton:hover { background-color: #2c3e50; }
-
-            /* AJOUT ICI : État quand on clique ou qu'on presse la touche clavier */
-            QPushButton:pressed, QPushButton[down="true"] { 
-                background-color: #1a252f; 
-                border: 1px solid #3498db;
-                padding-top: 13px; /* Simule l'enfoncement en décalant légèrement le texte */
-            }
-
-            QListWidget { background-color: #181825; color: #a6adc8; }
-        """)
-
-        self.canvas.setStyleSheet("border: 2px solid #89b4fa; background: #000000; border-radius: 10px;")
-
-        self.btn_image.setStyleSheet("""
-            QPushButton { background-color: #2ecc71; color: white; font-family: 'Consolas', 'Courier New', monospace; font-weight: bold; border-radius: 8px; padding: 10px;}
-            QPushButton:hover { background-color: #28b062; }
-        """)
-
-        self.btn_langue.setStyleSheet("""
-            QPushButton { background-color: #960018; color: white; font-family: 'Consolas', 'Courier New', monospace; font-weight: bold; border-radius: 8px; padding: 10px;}
-            QPushButton:hover { background-color: #850007; }
-        """)
-
-       # --- STYLE BOUTON MONTER (Bleu Cyan) ---
-        self.btn_monter.setStyleSheet("""
-            QPushButton { 
-                background-color: #00d2ff;
-                color: #1e1e2e;
-                border-top-left-radius: 15px; 
-                border-top-right-radius: 15px;
-                border: 1px solid #00bcff;
-                font-weight: bold;
-                font-size: 12px;
-            }
-            QPushButton:hover { background-color: #70e1ff; }
-            QPushButton:pressed, QPushButton[down="true"] { 
-                background-color: #0086a8; 
-                padding-top: 3px; 
-            }
-        """)
-
-        # --- STYLE BOUTON DESCENDRE (Bleu Foncé / Cobalt) ---
-        self.btn_descendre.setStyleSheet("""
-            QPushButton { 
-                background-color: #3a4df0;
-                color: white;
-                border-bottom-left-radius: 15px; 
-                border-bottom-right-radius: 15px;
-                border: 1px solid #2a3bc0;
-                font-weight: bold;
-                font-size: 12px;
-            }
-            QPushButton:hover { background-color: #5d6df5; }
-            QPushButton:pressed, QPushButton[down="true"] { 
-                background-color: #1e2a8a; 
-                padding-top: 3px; 
-            }
-        """)
-
-        self.label_statut.setStyleSheet("color: #e74c3c; font-weight: bold; font-family: 'Courier New', monospace; border-radius: 8px; padding: 10px")
+        # Style de base de la fenêtre
+        self.setStyleSheet(style.STYLE_GLOBAL)
         
-        # 2. NÉON VERT POUR LE COMPTEUR
-        neon_vert = QGraphicsDropShadowEffect()
-        neon_vert.setColor(QColor(166, 227, 161, 255)) 
-        neon_vert.setBlurRadius(25)
-        neon_vert.setOffset(0, 0)
-        self.label_compteur.setGraphicsEffect(neon_vert)
-        self.label_compteur.setStyleSheet("font-size: 24px; font-weight: bold; color: #f1ffed; background: transparent;")
-
-        # 3. NÉON BLEU POUR L'ALTITUDE 
-        neon_bleu = QGraphicsDropShadowEffect()
-        neon_bleu.setColor(QColor(137, 180, 250, 200)) # Bleu clair
-        neon_bleu.setBlurRadius(20)
-        neon_bleu.setOffset(0, 0)
-        self.label_altitude.setGraphicsEffect(neon_bleu)
-        self.label_altitude.setStyleSheet("font-size: 20px; padding: 10px; color: #b4befe; background: transparent;")
+        # Boutons de menu
+        self.btn_image.setStyleSheet(style.STYLE_BOUTON_IMAGE)
+        self.btn_langue.setStyleSheet(style.STYLE_BOUTON_LANGUE)
+        
+        # Commandes de vol (Pilotage)
+        self.btn_monter.setStyleSheet(style.STYLE_MONTER)
+        self.btn_descendre.setStyleSheet(style.STYLE_DESCENDRE)
+        self.btn_up.setStyleSheet(style.STYLE_AVANCER)
+        self.btn_down.setStyleSheet(style.STYLE_RECULER)
+        self.btn_right.setStyleSheet(style.STYLE_DROITE)
+        self.btn_left.setStyleSheet(style.STYLE_GAUCHE)
+        
+        # Éléments graphiques (Canvas et Néons)
+        self.canvas.setStyleSheet("border: 2px solid #89b4fa; background: #000000; border-radius: 10px;")
+        style.appliquer_effets_neon(self.label_compteur, self.label_altitude)
+        
+        # Statut (Déconnecté)
+        self.label_statut.setStyleSheet("color: #e74c3c; font-weight: bold; padding: 10px;")
 
 
 
@@ -660,10 +527,20 @@ class StationControleWIL(QWidget):
 
     def changer_langue(self):
         """
-        Bascule l'intégralité de l'interface entre le français et l'anglais
+        Passe la langue de français à anglais et inversement
         """
         self.langue = not self.langue
         
+        # On appelle la mise à jour visuelle (ton gros bloc de setText)
+        self.appliquer_textes_langue()
+        
+        # On enregistre via le manager
+        sauvegarder_configuration(self.langue)
+        
+    def appliquer_textes_langue(self):
+        """
+        Change la languedes textes
+        """
         # 1. Textes des boutons
         self.btn_langue.setText("Switch to English" if not self.langue else "Passer en français")
         self.btn_compter.setText("Count objects" if self.langue else "Compter les objets")
@@ -716,7 +593,7 @@ class StationControleWIL(QWidget):
         self.dessiner_tout()
 
         # 8. Enregistrer le changement de langue
-        self.sauvegarder_config()
+        sauvegarder_configuration(self.langue)
         
 
 
@@ -882,21 +759,11 @@ class StationControleWIL(QWidget):
             - altitude (float) : altitude du drône
             - nb (int) : nombre d'objets comptés
             - type_objet (str) : type d'objets comptés (moutons, voitures...)
-        """
-        horodatage = datetime.now().strftime("%H:%M:%S")
+        """        
+        h = self.db.sauvegarder_mission(chemin, altitude, nb, type_objet, self.objets_detectes)
         
-        liste_coords = [f"{r.x()},{r.y()},{r.width()},{r.height()}" for r in self.objets_detectes]
-        chaine_coords = ";".join(liste_coords)
-
-        cursor = self.conn.cursor()
-        # Requête SQl
-        cursor.execute("""
-            INSERT INTO missions (horodatage, chemin_image, altitude, nb_objets, coordonnees, type_objet) 
-            VALUES (?, ?, ?, ?, ?, ?)""",
-            (horodatage, chemin, altitude, nb, chaine_coords, type_objet))
-        self.conn.commit()
-        
-        self.liste_historique.addItem(f"[{horodatage}] - {nb} {type_objet} (Alt: {altitude}m)")
+        # L'UI s'occupe de l'affichage uniquement
+        self.liste_historique.addItem(f"[{h}] - {nb} {type_objet} (Alt: {altitude}m)")
 
 
 
@@ -905,33 +772,16 @@ class StationControleWIL(QWidget):
         Exporte les données de la base en fichier CSV avec les coordonnées
         """
         try:
-            # 1. Préparer le dossier de destination
-            dossier_sortie = "rapports"
-            if not os.path.exists(dossier_sortie):
-                os.makedirs(dossier_sortie) # Crée le dossier s'il n'existe pas
-
-
-            cursor = self.conn.cursor()
-            cursor.execute("SELECT id, horodatage, chemin_image, altitude, nb_objets, type_objet, coordonnees FROM missions")
-            data = cursor.fetchall()
+            # On demande au manager de faire le fichier
+            chemin = self.db.exporter_csv(self.langue)
             
-            # 2. Construire le nom et le CHEMIN COMPLET
-            nom_fichier = f"rapport_mission_{datetime.now().strftime('%d_%m_%Y')}.csv"
-            chemin_complet = os.path.join(dossier_sortie, nom_fichier) # Résultat : "rapports/rapport_mission_..."
-            
-            # 3. Ouvrir le fichier avec le chemin complet
-            with open(chemin_complet, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f, delimiter=';')
-                writer.writerow(["ID", "Heure", "Chemin Image", "Altitude (m)", "Nombre", "Type", "Coordonnées"])
-                writer.writerows(data)
-
             # Mise à jour de l'UI
-            self.label_archive.setText(f"Rapport généré dans /rapports" if not self.langue else "Report generated in /rapports")
+            texte = f"Rapport généré dans {chemin}" if not self.langue else f"Report generated in {chemin}"
+            self.label_archive.setText(texte)
             self.label_archive.setStyleSheet("color: #2ecc71; font-weight: bold;")
-
         except Exception as e:
-            print(f"Erreur lors de la génération du rapport : {e}")
-            self.label_archive.setText("Erreur lors de l'export CSV")
+            self.label_archive.setText("Erreur export CSV")
+            print(e)
 
 
 
@@ -944,24 +794,23 @@ class StationControleWIL(QWidget):
         """
         texte_complet = item.text() 
         try:
-            # 1. On extrait l'horodatage pour retrouver la ligne en BDD
+            # 1. Extraction de l'horodatage du texte de la liste
+            # Format attendu : "[HH:MM:SS] - ..."
             horodatage = texte_complet.split(']')[0].replace('[', '')
             
-            cursor = self.conn.cursor()
-            # --- MODIFICATION : On ajoute 'altitude' à la requête SELECT ---
-            cursor.execute("SELECT chemin_image, nb_objets, type_objet, coordonnees, altitude FROM missions WHERE horodatage = ?", (horodatage,))
-            resultat = cursor.fetchone()
+            # 2. APPEL AU MANAGER (Remplace self.conn.cursor)
+            resultat = self.db.recuperer_mission_par_horodatage(horodatage)
             
             if resultat:
-                # On récupère les 5 valeurs demandées dans le SELECT
                 chemin, nb, type_obj, chaine_coords, altitude = resultat
                 
-                # 3. Conversion des coordonnées (texte -> QRect)
+                # 3. CONVERSION DES COORDONNÉES (texte -> QRect)
                 nouvelles_coords = []
                 if chaine_coords:
                     for bloc in chaine_coords.split(';'):
-                        x, y, w, h = map(int, bloc.split(','))
-                        nouvelles_coords.append(QRect(x, y, w, h))
+                        if bloc: # Sécurité si la chaîne finit par ;
+                            x, y, w, h = map(int, bloc.split(','))
+                            nouvelles_coords.append(QRect(x, y, w, h))
                 
                 # 4. MISE À JOUR DE L'INTERFACE
                 self.chemin_image_actuelle = chemin
@@ -969,15 +818,16 @@ class StationControleWIL(QWidget):
                 # On met à jour l'image et les boîtes
                 self.charger_nouvelle_image(chemin, nouvelles_coords) 
                 
-                # ON AJOUTE LA MISE À JOUR DE L'ALTITUDE (avec animation)
+                # Animation de l'altitude
                 self.animer_altitude(altitude)
                 
-                # Mise à jour du label archive avec le bon type
-                self.label_archive.setText(f"Archive : {horodatage} ({nb} {type_obj})")
+                # Mise à jour du label archive
+                msg = f"Archive : {horodatage} ({nb} {type_obj})" if not self.langue else f"Archive: {horodatage} ({nb} {type_obj})"
+                self.label_archive.setText(msg)
                 self.label_archive.setStyleSheet("color: #2980b9; font-weight: bold;")
             
         except Exception as e:
-            print(f"Erreur historique : {e}")
+            print(f"Erreur historique (UI) : {e}")
 
 
 
@@ -1050,53 +900,16 @@ class StationControleWIL(QWidget):
         self.label_statut.setText("STATUS : DISCONNECTED" if self.langue else "STATUT : DÉCONNECTÉ")
         self.label_statut.setStyleSheet("color: #e74c3c; font-weight: bold; font-family: 'Courier New', monospace; padding: 10px")
 
+
+
     def appliquer_curseur_perso(self):
         """
         Crée et applique le viseur de base (bleu) et prépare la version rouge
         """
-        # 1. Taille standard pour un curseur
-        taille = 32
-        pixmap_base = QPixmap(taille, taille)
-        pixmap_base.fill(Qt.GlobalColor.transparent)
-        
-        # --- DESSIN DU VISEUR DE BASE (BLEU NÉON) ---
-        painter = QPainter(pixmap_base)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        pen_bleu = QPen(QColor("#00d2ff"), 2) # Bleu néon
-        painter.setPen(pen_bleu)
-        painter.drawEllipse(12, 12, 8, 8) # Petit cercle central
-        # Axes du viseur
-        painter.drawLine(16, 4, 16, 10)   # Haut
-        painter.drawLine(16, 22, 16, 28)  # Bas
-        painter.drawLine(4, 16, 10, 16)   # Gauche
-        painter.drawLine(22, 16, 28, 16)  # Droite
-        painter.end()
-        
-        # Stocke le curseur bleu par défaut pour la fenêtre
-        self.curseur_bleu = QCursor(pixmap_base, 16, 16)
+        # On récupère les deux curseurs depuis le fichier styles
+        self.curseur_bleu, self.curseur_rouge = style.creer_curseurs()
         self.setCursor(self.curseur_bleu)
 
-        # --- DESSIN DU VISEUR CLIC (ROUGE "LOCK-ON") ---
-        # On crée une copie exacte mais on change la couleur
-        pixmap_clic = QPixmap(taille, taille)
-        pixmap_clic.fill(Qt.GlobalColor.transparent)
-        
-        painter_clic = QPainter(pixmap_clic)
-        painter_clic.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        pen_rouge = QPen(QColor("#ff4757"), 3) # Rouge vif, légèrement plus épais
-        painter_clic.setPen(pen_rouge)
-        painter_clic.drawEllipse(10, 10, 12, 12) # Cercle central un peu plus grand
-        # Axes du viseur
-        painter_clic.drawLine(16, 2, 16, 12)   # Haut
-        painter_clic.drawLine(16, 20, 16, 30)  # Bas
-        painter_clic.drawLine(2, 16, 12, 16)   # Gauche
-        painter_clic.drawLine(20, 16, 30, 16)  # Droite
-        painter_clic.end()
-        
-        # Stocke le curseur rouge pour l'utiliser lors du survol
-        self.curseur_rouge = QCursor(pixmap_clic, 16, 16)
 
 
 if __name__ == "__main__":
