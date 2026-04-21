@@ -56,6 +56,9 @@
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\\Lib\\calendar.py',
    'PYMODULE'),
+  ('config_manager',
+   'C:\\Users\\Lenovo\\Desktop\\CLBD\\Projet_transversal\\Projet_WIL\\config_manager.py',
+   'PYMODULE'),
   ('contextlib',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\\Lib\\contextlib.py',
@@ -79,6 +82,9 @@
   ('ctypes._endian',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\\Lib\\ctypes\\_endian.py',
+   'PYMODULE'),
+  ('database_manager',
+   'C:\\Users\\Lenovo\\Desktop\\CLBD\\Projet_transversal\\Projet_WIL\\database_manager.py',
    'PYMODULE'),
   ('dataclasses',
    'C:\\Program '
@@ -175,6 +181,9 @@
   ('email.utils',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\\Lib\\email\\utils.py',
+   'PYMODULE'),
+  ('filtreCurseurLockOn',
+   'C:\\Users\\Lenovo\\Desktop\\CLBD\\Projet_transversal\\Projet_WIL\\filtreCurseurLockOn.py',
    'PYMODULE'),
   ('fnmatch',
    'C:\\Program '
@@ -356,6 +365,9 @@
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\\Lib\\random.py',
    'PYMODULE'),
+  ('resource_path',
+   'C:\\Users\\Lenovo\\Desktop\\CLBD\\Projet_transversal\\Projet_WIL\\resource_path.py',
+   'PYMODULE'),
   ('selectors',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\\Lib\\selectors.py',
@@ -395,6 +407,9 @@
   ('stringprep',
    'C:\\Program '
    'Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\\Lib\\stringprep.py',
+   'PYMODULE'),
+  ('style',
+   'C:\\Users\\Lenovo\\Desktop\\CLBD\\Projet_transversal\\Projet_WIL\\style.py',
    'PYMODULE'),
   ('subprocess',
    'C:\\Program '
