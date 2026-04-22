@@ -1,7 +1,7 @@
 import sys
 import ctypes
 import style
-from IA.main import fonction_ia
+from IA.main_IA import fonction_ia
 from database_manager import DatabaseManager
 from config_manager import charger_configuration, sauvegarder_configuration
 from utils import FiltreCurseurLockOn, resource_path

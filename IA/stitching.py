@@ -5,7 +5,7 @@
 """
 
 import cv2
-import config
+from . import config
 
 def stitching(images):
     """
