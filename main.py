@@ -3,8 +3,7 @@ import ctypes
 import style
 from database_manager import DatabaseManager
 from config_manager import charger_configuration, sauvegarder_configuration
-from filtreCurseurLockOn import FiltreCurseurLockOn
-from resource_path import resource_path
+from utils import FiltreCurseurLockOn, resource_path
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QComboBox, QGridLayout 
 from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont, QIcon
 from PyQt6.QtCore import Qt, QRect, QVariantAnimation

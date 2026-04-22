@@ -95,9 +95,7 @@ La Station de Contrôle WIL est une interface graphique développée en Python (
   
 - `config_manager.py` : Sauvegarde de la langue et réglages JSON.
   
-- `resource_path.py` : Fonction utilitaire.
-
-- `filtreCurseurLockOn.py` : Classe pour gérer le curseur.
+- `utils.py` : Fonctions et classes utilitaires.
 
 - `projet_wil.db` : Base de données SQLite (générée automatiquement).
 
