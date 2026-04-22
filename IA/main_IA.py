@@ -1,10 +1,9 @@
-import config
-import acquisition
-import detection
-import postprocessing
-import preprocessing
-import stitching
-import IA
+from . import acquisition
+from . import detection
+from . import postprocessing
+from . import preprocessing
+from . import stitching
+from . import IA_test
 import cv2
 import time
 
@@ -27,7 +26,7 @@ def fonction_ia():
         ############
         mosaique = cv2.imread('IA/carviewalive.jpg')
         ############
-        detections = IA.detect(mosaique)
+        detections = IA_test.detect(mosaique)
         print(f"Détections : {len(detections)} voiture(s)")
         coordonnees = []
         for d in detections:

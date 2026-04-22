@@ -5,7 +5,7 @@
 """
 import cv2
 import os
-import config as cfg
+from . import config as cfg
 
 def acquisition():
     """

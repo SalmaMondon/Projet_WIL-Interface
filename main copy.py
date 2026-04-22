@@ -1,7 +1,16 @@
+import os
 import sys
+
+# On ajoute explicitement le chemin des bibliothèques Torch au système
+torch_lib_path = os.path.join(os.getenv('LOCALAPPDATA'), 
+    r"Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\torch\lib")
+
+if os.path.exists(torch_lib_path):
+    os.add_dll_directory(torch_lib_path)
+    
 import ctypes
 import style
-from IA.main import fonction_ia
+from IA.main_IA import fonction_ia
 from database_manager import DatabaseManager
 from config_manager import charger_configuration, sauvegarder_configuration
 from utils import FiltreCurseurLockOn, resource_path
@@ -499,10 +508,10 @@ class StationControleWIL(QWidget):
         if not self.image_originale.isNull():
             # Simulation des données de Mael et Anaïs
             # On crée une liste de 5 rectangles différents [x, y, largeur, hauteur]
-            fausses_coordonnees = [tuple(randint(50, 400) for _ in range(4)) for _ in range(randint(2, 10))]
+            coordonnees = fonction_ia()
             
             # On calcule le nombre d'objets en fonction du nombre de boîtes
-            nb_trouve = len(fausses_coordonnees) 
+            nb_trouve = len(coordonnees) 
 
             # Mise à jour du compteur avec le nom de l'objet
             texte = f"{type_objet} detected: {nb_trouve}" if self.langue else f"{type_objet} détectés : {nb_trouve}"
@@ -512,7 +521,7 @@ class StationControleWIL(QWidget):
             altitude_actuelle = round(randint(10, 50) + (randint(0, 9) / 10), 1)
             self.animer_altitude(altitude_actuelle) # L'animation remplace le setText direct
             
-            self.charger_nouvelle_image(self.chemin_image_actuelle, fausses_coordonnees) 
+            self.charger_nouvelle_image(self.chemin_image_actuelle, coordonnees) 
         
             # ENREGISTREMENT avec le type d'objet
             self.enregistrer_capture(self.chemin_image_actuelle, altitude_actuelle, nb_trouve, type_objet)
