@@ -29,7 +29,7 @@ class StationControleWIL(QWidget):
         #Initialisation de la BDD
         self.db = DatabaseManager("projet_wil.db")
         
-        # Variables pour l'image et Mael
+        # Variables pour l'image et Mael et langue
         self.image_originale = QPixmap()
         self.objets_detectes = []
         self.afficher_boxes = True
@@ -57,7 +57,7 @@ class StationControleWIL(QWidget):
         for bouton in self.findChildren(QPushButton):
             bouton.installEventFilter(self.filtre_lockon)
             
-        # N'oublie pas le menu déroulant et la liste
+        # --- 4. APPLICATION DU FILTRE SUR LE MENU DEROULANT ---
         self.combo_objets.installEventFilter(self.filtre_lockon)
         self.liste_historique.installEventFilter(self.filtre_lockon)
 
@@ -84,13 +84,15 @@ class StationControleWIL(QWidget):
         # ==========================================
         layout_telemetrie = QVBoxLayout()
 
+        # --- LOGO ---
         self.label_logo = QLabel()
         pixmap_logo = QPixmap(resource_path("assets/logo_wil_quedar.png")) 
-        # On le redimensionne pour qu'il ne prenne pas toute la place (ex: 200px de large)
+        # On le redimensionne pour qu'il ne prenne pas toute la place 
         self.label_logo.setPixmap(pixmap_logo.scaled(200, 200, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         self.label_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout_telemetrie.addWidget(self.label_logo)
         
+        # --- TITRES ---
         self.label_titre = QLabel("\n DONNÉES DE BORD")
         self.label_titre.setStyleSheet("font-weight: bold; font-size: 16px; color: #3498db;")
         layout_telemetrie.addWidget(self.label_titre)
@@ -137,6 +139,7 @@ class StationControleWIL(QWidget):
         
         layout_telemetrie.addLayout(layout_batterie_container)
 
+        # --- ALTITUDE ET STATUT ---
         self.label_altitude = QLabel("Altitude : 0.0 m")
         self.label_altitude.setStyleSheet("font-size: 20px; padding: 10px; background: #ecf0f1; border-radius: 5px;")
         layout_telemetrie.addWidget(self.label_altitude)
@@ -168,7 +171,7 @@ class StationControleWIL(QWidget):
         self.btn_monter.setFixedSize(50, 25)
         self.btn_descendre.setFixedSize(50, 25)
 
-        # 2. Style des boutons (on les fait carrés pour un beau rendu)
+        # 2. Style des boutons 
         style_bouton = "font-size: 18px; font-weight: bold; width: 45px; height: 45px; padding: 0px;"
         for btn in [self.btn_up, self.btn_down, self.btn_left, self.btn_right, self.btn_descendre, self.btn_monter]:
             btn.setStyleSheet(style_bouton)
@@ -179,10 +182,10 @@ class StationControleWIL(QWidget):
         self.btn_descendre.setStyleSheet(style_vertical + "background-color: #d35400; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;")
 
         # 3. Placement dans la Grille (Ligne, Colonne)
-        #       Col 0  Col 1 | Col 2
-        # L0 :        |  HAUT |       
-        # L1 : GAUCHE | CENTRE| DROITE
-        # L2 :        |  BAS  |       
+        #       Col 0 |   Col 1   | Col 2
+        # L0 :        |   AVANT   |       
+        # L1 : GAUCHE |  HAUT/BAS | DROITE
+        # L2 :        |  ARRIERE  |       
         
         layout_fleches.addWidget(self.btn_up, 0, 1)     # Haut
         layout_fleches.addWidget(self.btn_left, 1, 0)   # Gauche
@@ -223,7 +226,7 @@ class StationControleWIL(QWidget):
         self.combo_objets = QComboBox()
         self.combo_objets.addItems(["Moutons", "Voitures", "Humains", "Bâtiments"])
         
-        # Style pour correspondre à mon design sombre
+        # Style sombre
         self.combo_objets.setStyleSheet("""
             QComboBox {
                 background-color: #34495e;
@@ -288,7 +291,7 @@ class StationControleWIL(QWidget):
         layout_global.addLayout(self.layout_historique, stretch=1)
         
         # --- DÉSACTIVER LE FOCUS SUR TOUS LES BOUTONS ---
-        # Cela permet au clavier de toujours piloter le drone
+        # Cela permet au clavier de (presque) toujours piloter le drone
         for bouton in self.findChildren(QPushButton):
             bouton.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         
@@ -328,6 +331,9 @@ class StationControleWIL(QWidget):
         self.btn_descendre.released.connect(self.reinitialiser_statut)
 
 
+    # ==========================================
+    # FONCTIONS LOGIQUES
+    # ==========================================
     def configurer_interactions_souris(self):
         """
         Applique le curseur par défaut et branche le filtre rouge sur les boutons
@@ -354,9 +360,7 @@ class StationControleWIL(QWidget):
             btn.installEventFilter(self.filtre_lockon)
 
 
-    # ==========================================
-    # 5. FONCTIONS LOGIQUES
-    # ==========================================
+    
     def animer_altitude(self, nouvelle_valeur):
         """
         Permet de faire défiler l'altitude sur l'interface
@@ -520,7 +524,10 @@ class StationControleWIL(QWidget):
         Affichage des rectangles rouges
         """
         self.afficher_boxes = not self.afficher_boxes
-        self.btn_toggle.setText("Afficher les détections" if not self.afficher_boxes else "Masquer les détections")
+        if not self.langue :
+            self.btn_toggle.setText("Afficher les détections" if not self.afficher_boxes else "Masquer les détections")
+        else:
+            self.btn_toggle.setText("Hide detections" if self.afficher_boxes else "Display detections")
         self.dessiner_tout()
 
 
@@ -607,35 +614,30 @@ class StationControleWIL(QWidget):
             - chemin (str) :chemin de l'image
             - coordonnes (list ou Qrect) : liste des coordonnées des objets détectés    
         """
+        # 1. Chargement et vérification de l'image
         self.image_originale = QPixmap(chemin)
         
         if self.image_originale.isNull():
-            # Au lieu de self.canvas.setText, on utilise l'overlay
-            self.message_overlay = "ERREUR : Fichier introuvable !"
-            # On force le radar à se redessiner avec ce nouveau message
+            self.message_overlay = "ERROR" if self.langue else "ERREUR : Fichier introuvable !"
             self.dessiner_tout()
             return
 
-        # Si l'image est trouvée, on vide le message pour ne pas polluer l'affichage futur
+        # 2. Nettoyage du message d'erreur si l'image est valide
         self.message_overlay = ""
 
-        # Code pour convertir les coordonnées
+        # 3. Conversion intelligente des coordonnées 
+        # On vérifie : 1. Si la liste n'est pas vide / 2. Si le premier élément n'est pas déjà un QRect
         if coordonnees and not isinstance(coordonnees[0], QRect):
             self.objets_detectes = [QRect(x, y, w, h) for (x, y, w, h) in coordonnees]
         else:
-            self.objets_detectes = coordonnees
+            # Si c'est déjà des QRect ou une liste vide, on assigne directement
+            self.objets_detectes = coordonnees if coordonnees else []
 
-        self.label_compteur.setText(f"Objets détectés : {len(self.objets_detectes)}")
-        self.dessiner_tout()
-
-        # Si on reçoit des données et que ce ne sont pas déjà des QRect, on les convertit
-        if coordonnees and not isinstance(coordonnees[0], QRect):
-            self.objets_detectes = [QRect(x, y, w, h) for (x, y, w, h) in coordonnees]
-        else:
-            # Sinon (si c'est déjà des QRect ou une liste vide), on prend tel quel
-            self.objets_detectes = coordonnees
-
-        self.label_compteur.setText(f"Objets détectés : {len(self.objets_detectes)}")
+        # 4. Mise à jour de l'UI 
+        nb = len(self.objets_detectes)
+        self.label_compteur.setText(f"Detected objects: {nb}" if self.langue else f"Objets détectés : {nb}")
+        
+        # 5. Rafraîchissement global
         self.dessiner_tout()
 
 
