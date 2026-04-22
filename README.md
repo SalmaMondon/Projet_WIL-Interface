@@ -104,9 +104,7 @@ The WIL Ground Control Station is a graphical interface developed in Python (PyQ
 
 - `config_manager.py`: Language saving and JSON settings.
 
-- `resource_path.py`: Utility function.
-
-- `filterCursorLockOn.py`: Class for managing the cursor.
+- `utils..py`: Utility function and class.
 
 - `projet_wil.db` : SQLite database (generated automatically).
 
