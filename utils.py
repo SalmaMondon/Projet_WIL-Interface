@@ -1,6 +1,22 @@
 import sys
 import os
-from PyQt6.QtCore import QObject, QEvent, QRectF
+from PyQt6.QtCore import QObject, QEvent
+from PyQt6.QtCore import QThread, pyqtSignal
+
+from IA.main_IA import run_pipeline
+
+class IAWorker(QThread):
+    # Signal qui enverra les résultats quand l'IA aura fini
+    finished = pyqtSignal(list)
+    error = pyqtSignal(str)
+
+    def run(self):
+        try:
+            # On lance le calcul lourd ici
+            resultats = run_pipeline() 
+            self.finished.emit(resultats)
+        except Exception as e:
+            self.error.emit(str(e))
 
 
 class FiltreCurseurLockOn(QObject):
