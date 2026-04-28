@@ -15,7 +15,7 @@ def stitch_mosaic():
 
     Set = preprocessing.preprocessing(Set)
     print('Preprocessing finished')
-
+    try :
         start_time = time.perf_counter()
 
         mosaic = stitching.stitching(Set)
