@@ -306,24 +306,6 @@ def plot_prediction(img_tensor, pred, threshold=CONF_THRESHOLD):
 
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.imshow(img_tensor.permute(1, 2, 0).numpy())
-# ----------------------------
-# AFFICHAGE AVEC NMS
-# ----------------------------
-def plot_prediction(img, detections, threshold=CONF_THRESHOLD):
-    """
-    Prend en entrée l'image (Tensor ou NP) et la liste des dicts de detect().
-    """
-    # Conversion pour affichage
-    if torch.is_tensor(img):
-        img_np = img.permute(1, 2, 0).cpu().numpy()
-    else:
-        img_np = img
-        
-    h_img, w_img = img_np.shape[:2]
-
-    plt.figure(figsize=(10, 10))
-    plt.imshow(img_np)
-    ax = plt.gca()
 
     if raw_boxes:
         kept = nms(torch.tensor(raw_boxes,  dtype=torch.float32),
@@ -342,28 +324,6 @@ def plot_prediction(img, detections, threshold=CONF_THRESHOLD):
 
     ax.axis('off')
     plt.tight_layout()
-    for d in detections:
-        # On récupère les ratios (0 à 1)
-        x1_n, y1_n, x2_n, y2_n = d['box']
-        
-        # On remet à l'échelle de l'image actuelle
-        x1, x2 = x1_n * w_img, x2_n * w_img
-        y1, y2 = y1_n * h_img, y2_n * h_img
-        
-        width = x2 - x1
-        height = y2 - y1
-
-        rect = patches.Rectangle(
-            (x1, y1), width, height,
-            linewidth=2, edgecolor='r', facecolor='none'
-        )
-        ax.add_patch(rect)
-        ax.text(x1, y1 - 5, f"{d['score']:.2f}",
-                color='yellow', fontsize=8, fontweight='bold',
-                bbox=dict(facecolor='black', alpha=0.5, pad=1))
-
-    plt.title(f"Objets détectés : {len(detections)}")
-    plt.axis('off')
     plt.show()
 
 
@@ -376,15 +336,12 @@ def detect(image_input, threshold=CONF_THRESHOLD):
     Accepts: file path (str), NumPy array (BGR), or PIL Image.
     Returns: [{'box': [x1, y1, x2, y2], 'score': float}, ...]
     """
-    Retourne des coordonnées NORMALISÉES (0.0 à 1.0) pour être 
-    indépendant de la résolution de l'image.
-    """
     try:
         if isinstance(image_input, str):
             raw_img = Image.open(image_input).convert("RGB")
         elif isinstance(image_input, np.ndarray):
             raw_img = Image.fromarray(cv2.cvtColor(image_input, cv2.COLOR_BGR2RGB))
-        else:
+        elif hasattr(image_input, "convert"):
             raw_img = image_input.convert("RGB")
         else:
             raise ValueError(f"Unsupported image format: {type(image_input)}")
@@ -393,7 +350,6 @@ def detect(image_input, threshold=CONF_THRESHOLD):
         print(f"[ERROR] Lecture image : {e}")
         return []
 
-    preprocess   = transforms.Compose([
     preprocess = transforms.Compose([
         transforms.Resize((IMG_SIZE, IMG_SIZE)),
         transforms.ToTensor(),
