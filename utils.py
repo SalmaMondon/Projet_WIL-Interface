@@ -1,6 +1,6 @@
 import sys
 import os
-from PyQt6.QtCore import QObject, QEvent
+from PyQt6.QtCore import QObject, QEvent, QRectF
 
 
 class FiltreCurseurLockOn(QObject):
@@ -43,3 +43,4 @@ def resource_path(relative_path):
                 return path_internal
                 
         return path_normal
+
