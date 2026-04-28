@@ -350,128 +350,98 @@ def entrainement():
 # ----------------------------
 # AFFICHAGE AVEC NMS
 # ----------------------------
-def plot_prediction(img, pred, threshold=CONF_THRESHOLD):
-    """Affiche l'image avec les boîtes après NMS."""
-    img_np = img.permute(1, 2, 0).numpy()
-    pred_np = pred.numpy()
+def plot_prediction(img, detections, threshold=CONF_THRESHOLD):
+    """
+    Prend en entrée l'image (Tensor ou NP) et la liste des dicts de detect().
+    """
+    # Conversion pour affichage
+    if torch.is_tensor(img):
+        img_np = img.permute(1, 2, 0).cpu().numpy()
+    else:
+        img_np = img
+        
+    h_img, w_img = img_np.shape[:2]
 
-    raw_boxes  = []
-    raw_scores = []
-
-    for y in range(GRID_SIZE):
-        for x in range(GRID_SIZE):
-            conf = pred_np[4, y, x]
-            if conf > threshold:
-                cx = (x + pred_np[0, y, x]) / GRID_SIZE * IMG_SIZE
-                cy = (y + pred_np[1, y, x]) / GRID_SIZE * IMG_SIZE
-                w  = pred_np[2, y, x] * IMG_SIZE
-                h  = pred_np[3, y, x] * IMG_SIZE
-                x1, y1 = cx - w / 2, cy - h / 2
-                x2, y2 = cx + w / 2, cy + h / 2
-                raw_boxes.append([x1, y1, x2, y2])
-                raw_scores.append(conf)
-
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(10, 10))
     plt.imshow(img_np)
     ax = plt.gca()
 
-    if raw_boxes:
-        boxes_t  = torch.tensor(raw_boxes,  dtype=torch.float32)
-        scores_t = torch.tensor(raw_scores, dtype=torch.float32)
-        kept = nms(boxes_t, scores_t)
+    for d in detections:
+        # On récupère les ratios (0 à 1)
+        x1_n, y1_n, x2_n, y2_n = d['box']
+        
+        # On remet à l'échelle de l'image actuelle
+        x1, x2 = x1_n * w_img, x2_n * w_img
+        y1, y2 = y1_n * h_img, y2_n * h_img
+        
+        width = x2 - x1
+        height = y2 - y1
 
-        for i in kept:
-            x1, y1, x2, y2 = raw_boxes[i]
-            rect = patches.Rectangle(
-                (x1, y1), x2 - x1, y2 - y1,
-                linewidth=2, edgecolor='r', facecolor='none'
-            )
-            ax.add_patch(rect)
-            ax.text(x1, y1 - 3, f"{raw_scores[i]:.2f}",
-                    color='yellow', fontsize=7, fontweight='bold')
+        rect = patches.Rectangle(
+            (x1, y1), width, height,
+            linewidth=2, edgecolor='r', facecolor='none'
+        )
+        ax.add_patch(rect)
+        ax.text(x1, y1 - 5, f"{d['score']:.2f}",
+                color='yellow', fontsize=8, fontweight='bold',
+                bbox=dict(facecolor='black', alpha=0.5, pad=1))
 
-        plt.title(f"Moutons détectés (après NMS) : {len(kept)}")
-    else:
-        plt.title("Aucune détection au-dessus du seuil")
-
+    plt.title(f"Objets détectés : {len(detections)}")
     plt.axis('off')
-    plt.tight_layout()
     plt.show()
 
 
 def detect(image_input, threshold=CONF_THRESHOLD):
     """
-    Détecte des objets dans une image et applique le filtrage NMS.
-    
-    Retourne : 
-        Une liste de dictionnaires filtrés par NMS : 
-        [{'box': [x1, y1, x2, y2], 'score': float}, ...]
+    Retourne des coordonnées NORMALISÉES (0.0 à 1.0) pour être 
+    indépendant de la résolution de l'image.
     """
-    # 1. GESTION DE L'ENTRÉE (Conversion universelle en PIL RGB)
     try:
         if isinstance(image_input, str):
             raw_img = Image.open(image_input).convert("RGB")
         elif isinstance(image_input, np.ndarray):
-            # Cas OpenCV (BGR -> RGB)
             raw_img = Image.fromarray(cv2.cvtColor(image_input, cv2.COLOR_BGR2RGB))
-        elif hasattr(image_input, 'convert'):
-            raw_img = image_input.convert("RGB")
         else:
-            raise ValueError(f"Format d'image non supporté : {type(image_input)}")
+            raw_img = image_input.convert("RGB")
     except Exception as e:
-        print(f"[ERROR] Échec de la lecture de l'image : {e}")
+        print(f"[ERROR] Lecture image : {e}")
         return []
 
-    # 2. PRÉ-TRAITEMENT
     preprocess = transforms.Compose([
         transforms.Resize((IMG_SIZE, IMG_SIZE)),
         transforms.ToTensor(),
     ])
-    
     input_tensor = preprocess(raw_img).unsqueeze(0).to(device)
 
-    # 3. INFÉRENCE
     model.eval()
     with torch.no_grad():
-        # pred shape attendue : [5, GRID_SIZE, GRID_SIZE]
         pred = model(input_tensor)[0].cpu().numpy()
 
-    # 4. EXTRACTION VECTORISÉE (Plus rapide que des boucles for)
-    # On crée une grille de coordonnées (x, y) pour NumPy
     y_grid, x_grid = np.ogrid[:GRID_SIZE, :GRID_SIZE]
-    
-    # Masque de confiance : on ne garde que ce qui dépasse le seuil
     conf_mask = pred[4] > threshold
     
     if not np.any(conf_mask):
         return []
 
-    # Extraction des données filtrées par le masque
     scores = pred[4][conf_mask]
     
-    # Calcul des centres et dimensions (cx, cy, w, h)
-    # pred[0]=dx, pred[1]=dy, pred[2]=dw, pred[3]=dh
-    cx = (x_grid + pred[0])[conf_mask] / GRID_SIZE * IMG_SIZE
-    cy = (y_grid + pred[1])[conf_mask] / GRID_SIZE * IMG_SIZE
-    w  = pred[2][conf_mask] * IMG_SIZE
-    h  = pred[3][conf_mask] * IMG_SIZE
+    # CALCUL NORMALISÉ : On divise par GRID_SIZE sans multiplier par IMG_SIZE
+    cx = (x_grid + pred[0])[conf_mask] / GRID_SIZE
+    cy = (y_grid + pred[1])[conf_mask] / GRID_SIZE
+    w  = pred[2][conf_mask] # Déjà normalisé par le modèle en général
+    h  = pred[3][conf_mask] 
 
-    # Conversion en coins [x1, y1, x2, y2]
     x1, y1 = cx - w/2, cy - h/2
     x2, y2 = cx + w/2, cy + h/2
     
-    # Empilement pour créer la liste des boîtes brutes
     raw_boxes = np.stack([x1, y1, x2, y2], axis=1)
     raw_scores = scores.astype(float)
 
-    # 5. FILTRAGE NMS (Suppression des doublons)
+    # NMS fonctionne très bien sur des valeurs normalisées
     boxes_t  = torch.tensor(raw_boxes,  dtype=torch.float32)
     scores_t = torch.tensor(raw_scores, dtype=torch.float32)
-    
-    # kept contient les indices des boîtes retenues après NMS
     kept_indices = nms(boxes_t, scores_t)
 
-    # 6. RÉSULTAT FINAL
     return [
         {
             'box': raw_boxes[i].tolist(), 
