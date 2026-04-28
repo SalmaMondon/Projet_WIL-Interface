@@ -65,7 +65,7 @@ def run_detection(mosaic=None):
         return coordinates
 
     except Exception as e:
-        print(f'[ERROR] Une erreur est survenue dans le pipeline IA : {e}')
+        print(f'[ERROR] an error occured in the AI pipline  : {e}')
         return []
 
 
