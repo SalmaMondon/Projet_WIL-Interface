@@ -26,5 +26,5 @@ def pad_to_square(img):
 
     return canvas
 
-# img = cv2.imread('carviewalive.jpg')
+# img = cv2.imread('IA/car2.png')
 # pad_to_square(img)
