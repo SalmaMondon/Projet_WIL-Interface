@@ -22,6 +22,9 @@ def stitch_mosaic():
         print('Stitching finished')
 
         mosaic = postprocessing.postprocessing(mosaic)
+        ##################### à changer quand on aura les vraies images
+        mosaic = cv2.imread('IA/carviewalive.jpg')
+        #####################
         cv2.imwrite('output/output_image.jpg', mosaic)
 
         end_time = time.perf_counter()
@@ -39,21 +42,20 @@ def run_detection(mosaic=None):
         mosaic = cv2.imread('IA/carviewalive.jpg')
     if mosaic is None: return []
 
-    h_real, w_real = mosaic.shape[:2] # 1830, 3771
+    h_real, w_real = mosaic.shape[:2]
 
     try:
-        # detections contient maintenant des boxes entre 0 et 1
         detections = IA_test.detect(mosaic)
         
         coordinates = []
         for d in detections:
-            x1_norm, y1_norm, x2_norm, y2_norm = d['box']
+            x1, y1, x2, y2 = d['box']
             
-            # On multiplie directement par la taille réelle en pixels
-            nx = int(round(x1_norm * w_real))
-            ny = int(round(y1_norm * h_real))
-            nw = int(round((x2_norm - x1_norm) * w_real))
-            nh = int(round((y2_norm - y1_norm) * h_real))
+            # Back to real scale
+            nx = int(round(x1 * w_real))
+            ny = int(round(y1 * h_real))
+            nw = int(round((x2 - x1) * w_real))
+            nh = int(round((y2 - y1) * h_real))
             
             coordinates.append((nx, ny, nw, nh))
 
@@ -68,7 +70,7 @@ def run_pipeline():
     mosaic = stitch_mosaic()
     if mosaic is None:
         return []
-    return run_detection()
+    return run_detection(mosaic)
 
 
 print(run_detection())
