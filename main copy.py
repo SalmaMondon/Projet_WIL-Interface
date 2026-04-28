@@ -13,9 +13,9 @@ import style
 from IA.main_IA import run_pipeline
 from database_manager import DatabaseManager
 from config_manager import charger_configuration, sauvegarder_configuration
-from utils import FiltreCurseurLockOn, resource_path
+from utils import FiltreCurseurLockOn, IAWorker, resource_path
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QComboBox, QGridLayout 
-from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont, QIcon
+from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont, QIcon, QMovie
 from PyQt6.QtCore import QRectF, Qt, QRect, QVariantAnimation
 from PyQt6.QtWidgets import QListWidget
 from random import randint #Pour générer des coordonnées pour les tests
@@ -45,6 +45,18 @@ class StationControleWIL(QWidget):
         self.langue = charger_configuration() # False : français ; True : anglais
         self.chemin_image_actuelle = ""
         self.message_overlay = "Choisissez une image" # Message par défaut au démarrage
+
+        #Rond de chargement
+        self.loader = QLabel(self)
+        self.movie = QMovie("assets/chargement.gif") # Ton fichier GIF
+        self.loader.setMovie(self.movie)
+        self.loader.setFixedSize(100, 100) # Taille du cercle
+        self.loader.hide() # Caché par défaut
+        # Taille souhaitée pour l'affichage à l'écran
+        size_loader = 100 
+        self.loader.setFixedSize(size_loader, size_loader)
+        self.movie.setScaledSize(self.loader.size()) # FORCE le GIF à s'adapter à la taille du label
+        self.loader.setMovie(self.movie)
         
         # Lancement de la construction de l'interface
         self.init_ui()
@@ -493,52 +505,87 @@ class StationControleWIL(QWidget):
 
     def action_compter(self):
         """
-        Permet de compter les objets en se basant sur l'analyse d'image.
-        Actuellement, comportement aléatoire
+        Lance le Thread de calcul IA et affiche le loader.
         """
-        if self.image_originale.isNull() or not self.chemin_image_actuelle :
-            # On change la variable et on redessine
+        # Vérifications de base
+        if self.image_originale.isNull() or not self.chemin_image_actuelle:
             self.message_overlay = ("ERREUR : Chargez une image d'abord !" if not self.langue else "ERROR : load a picture first !")
             self.dessiner_tout()
             return
+
+        # 1. Préparation visuelle (Loader)
+        # Dans action_compter, juste avant le .show()
+        largeur_w = self.width()
+        hauteur_w = self.height()
+
+        # Calcul pour que le MILIEU du loader soit au MILIEU du widget
+        x = (largeur_w - self.loader.width()) // 2
+        y = (hauteur_w - self.loader.height()) // 2
+
+        self.loader.move(x, y)
+        self.loader.show()
+        self.loader.raise_()
+        self.loader.show()
+        self.loader.raise_()
+        self.movie.start()
         
-        # On récupère le type d'objet sélectionné dans le menu
-        type_objet = self.combo_objets.currentText()
-    
-        if not self.image_originale.isNull():
-            # 1. On récupère les données brutes de l'IA (en pixels ou normalisées)
-            coordonnees_brutes = run_pipeline()
-            for i in range(len(coordonnees_brutes)):
-                # Si la largeur (det[2]-det[0]) est délirante, c'est l'IA qui divague
-                print(f"Objet {i} - Largeur brute calculée : {coordonnees_brutes[i][2] - coordonnees_brutes[i][0]}") 
+        # On désactive le bouton pour éviter de lancer 10 calculs en même temps
+        self.btn_compter.setEnabled(False) 
+
+        # 2. Configuration et lancement du Thread
+        self.worker = IAWorker()
+        
+        # On connecte le signal de fin à la fonction qui traitera les données
+        self.worker.finished.connect(self.finaliser_comptage)
+        
+        # Optionnel : gérer les erreurs si run_pipeline plante
+        self.worker.error.connect(lambda err: print(f"Erreur IA : {err}"))
+        
+        # On lance le thread
+        self.worker.start()
+
+
+
+    def finaliser_comptage(self, coordonnees_brutes):
+        """
+        Traitement des données une fois que run_pipeline() a terminé.
+        """
+        # 1. Arrêter et cacher le loader
+        self.movie.stop()
+        self.loader.hide()
+        self.btn_compter.setEnabled(True) # On réactive le bouton
+
+        # 2. Debugging (Tes tests de survie)
+        if coordonnees_brutes:
+            for i, det in enumerate(coordonnees_brutes):
+                print(f"Objet {i} - Largeur brute : {det[2] - det[0]}")
             print(f"DEBUG BRUT IA: {coordonnees_brutes[0]}")
-            
-            # 2. TRANSFORMATION : On convertit les données brutes pour ton interface
-            rectangles_corriges = []
-            for det in coordonnees_brutes:
-                # det doit être [x_center, y_center, width, height]
+
+        # 3. TRANSFORMATION (scale_to_widget)
+        rectangles_corriges = []
+        for det in coordonnees_brutes:
+            # Sécurité : on ne traite que si les coordonnées sont valides (x2 > x1)
+            if det[2] > det[0] and det[3] > det[1]:
                 rect = self.scale_to_widget(det[0], det[1], det[2], det[3])
                 rectangles_corriges.append(rect)
 
-            # 3. AFFICHAGE : On utilise les rectangles corrigés
-            # Note : Je garde ta logique de charger l'image stitchée
-            self.charger_nouvelle_image('output/output_image.jpg', rectangles_corriges)
-            
-            # On calcule le nombre d'objets en fonction du nombre de boîtes
-            nb_trouve = len(rectangles_corriges) 
+        # 4. AFFICHAGE ET COMPTEUR
+        nb_trouve = len(rectangles_corriges)
+        type_objet = self.combo_objets.currentText()
+        
+        # Mise à jour de l'image avec les rectangles
+        self.charger_nouvelle_image('output/output_image.jpg', rectangles_corriges)
+        
+        # Mise à jour du texte
+        texte = f"{type_objet} detected: {nb_trouve}" if self.langue else f"{type_objet} détectés : {nb_trouve}"
+        self.label_compteur.setText(texte)
 
-            # Mise à jour du compteur avec le nom de l'objet
-            texte = f"{type_objet} detected: {nb_trouve}" if self.langue else f"{type_objet} détectés : {nb_trouve}"
-            self.label_compteur.setText(texte)
+        # 5. ALTITUDE ET ENREGISTREMENT
+        altitude_actuelle = round(randint(10, 50) + (randint(0, 9) / 10), 1)
+        self.animer_altitude(altitude_actuelle)
         
-            #Affichage de l'altitude
-            altitude_actuelle = round(randint(10, 50) + (randint(0, 9) / 10), 1)
-            self.animer_altitude(altitude_actuelle) # L'animation remplace le setText direct
-            
-            self.charger_nouvelle_image(self.chemin_image_actuelle, rectangles_corriges) 
-        
-            # ENREGISTREMENT avec le type d'objet
-            self.enregistrer_capture(self.chemin_image_actuelle, altitude_actuelle, nb_trouve, type_objet)
+        # Enregistrement final
+        self.enregistrer_capture(self.chemin_image_actuelle, altitude_actuelle, nb_trouve, type_objet)
 
 
 
