@@ -16,7 +16,7 @@ from config_manager import charger_configuration, sauvegarder_configuration
 from utils import FiltreCurseurLockOn, resource_path
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QProgressBar, QFileDialog, QComboBox, QGridLayout 
 from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QFont, QIcon
-from PyQt6.QtCore import Qt, QRect, QVariantAnimation
+from PyQt6.QtCore import QRectF, Qt, QRect, QVariantAnimation
 from PyQt6.QtWidgets import QListWidget
 from random import randint #Pour générer des coordonnées pour les tests
 
@@ -506,14 +506,26 @@ class StationControleWIL(QWidget):
         type_objet = self.combo_objets.currentText()
     
         if not self.image_originale.isNull():
-            # Simulation des données de Mael et Anaïs
-            # On crée une liste de 5 rectangles différents [x, y, largeur, hauteur]
-            coordonnees = run_pipeline()
-            # On charge l'image qui a été sauvegardée par stitch_mosaic
-            self.charger_nouvelle_image('output/output_image.jpg', coordonnees)
+            # 1. On récupère les données brutes de l'IA (en pixels ou normalisées)
+            coordonnees_brutes = run_pipeline()
+            for i in range(len(coordonnees_brutes)):
+                # Si la largeur (det[2]-det[0]) est délirante, c'est l'IA qui divague
+                print(f"Objet {i} - Largeur brute calculée : {coordonnees_brutes[i][2] - coordonnees_brutes[i][0]}") 
+            print(f"DEBUG BRUT IA: {coordonnees_brutes[0]}")
+            
+            # 2. TRANSFORMATION : On convertit les données brutes pour ton interface
+            rectangles_corriges = []
+            for det in coordonnees_brutes:
+                # det doit être [x_center, y_center, width, height]
+                rect = self.scale_to_widget(det[0], det[1], det[2], det[3])
+                rectangles_corriges.append(rect)
+
+            # 3. AFFICHAGE : On utilise les rectangles corrigés
+            # Note : Je garde ta logique de charger l'image stitchée
+            self.charger_nouvelle_image('output/output_image.jpg', rectangles_corriges)
             
             # On calcule le nombre d'objets en fonction du nombre de boîtes
-            nb_trouve = len(coordonnees) 
+            nb_trouve = len(rectangles_corriges) 
 
             # Mise à jour du compteur avec le nom de l'objet
             texte = f"{type_objet} detected: {nb_trouve}" if self.langue else f"{type_objet} détectés : {nb_trouve}"
@@ -523,7 +535,7 @@ class StationControleWIL(QWidget):
             altitude_actuelle = round(randint(10, 50) + (randint(0, 9) / 10), 1)
             self.animer_altitude(altitude_actuelle) # L'animation remplace le setText direct
             
-            self.charger_nouvelle_image(self.chemin_image_actuelle, coordonnees) 
+            self.charger_nouvelle_image(self.chemin_image_actuelle, rectangles_corriges) 
         
             # ENREGISTREMENT avec le type d'objet
             self.enregistrer_capture(self.chemin_image_actuelle, altitude_actuelle, nb_trouve, type_objet)
@@ -639,7 +651,8 @@ class StationControleWIL(QWidget):
         # 3. Conversion intelligente des coordonnées 
         # On vérifie : 1. Si la liste n'est pas vide / 2. Si le premier élément n'est pas déjà un QRect
         if coordonnees and not isinstance(coordonnees[0], QRect):
-            self.objets_detectes = [QRect(x, y, w, h) for (x, y, w, h) in coordonnees]
+            # Remplace l'ancienne ligne 650 par celle-ci :
+            self.objets_detectes = coordonnees
         else:
             # Si c'est déjà des QRect ou une liste vide, on assigne directement
             self.objets_detectes = coordonnees if coordonnees else []
@@ -729,31 +742,48 @@ class StationControleWIL(QWidget):
             painter.setPen(QPen(QColor(255, 50, 50), 3))
             
             for rect in self.objets_detectes:
-                x, y, w, h = rect.getRect()
+                # 1. EXTRACTION ET CONVERSION EN ENTIERS
+                # Comme rect est un QRectF, getRect() renvoie des float. 
+                # On les transforme immédiatement en int pour painter.drawLine
+                x_f, y_f, w_f, h_f = rect.getRect()
+                x, y, w, h = int(x_f), int(y_f), int(w_f), int(h_f)
+                
+                # Taille des coins (25% du côté le plus petit)
                 t = int(min(w, h) * 0.25)
                 
-                # 1. DESSIN DES COINS 
-                painter.drawLine(x, y, x + t, y); painter.drawLine(x, y, x, y + t)
-                painter.drawLine(x + w, y, x + w - t, y); painter.drawLine(x + w, y, x + w, y + t)
-                painter.drawLine(x, y + h, x + t, y + h); painter.drawLine(x, y + h, x, y + h - t)
-                painter.drawLine(x + w, y + h, x + w - t, y + h); painter.drawLine(x + w, y + h, x + w, y + h - t)
+                # 2. DESSIN DES COINS (avec des coordonnées entières)
+                # Coin haut-gauche
+                painter.drawLine(x, y, x + t, y)
+                painter.drawLine(x, y, x, y + t)
+                
+                # Coin haut-droit
+                painter.drawLine(x + w, y, x + w - t, y)
+                painter.drawLine(x + w, y, x + w, y + t)
+                
+                # Coin bas-gauche
+                painter.drawLine(x, y + h, x + t, y + h)
+                painter.drawLine(x, y + h, x, y + h - t)
+                
+                # Coin bas-droit
+                painter.drawLine(x + w, y + h, x + w - t, y + h)
+                painter.drawLine(x + w, y + h, x + w, y + h - t)
 
-                # 2. AJOUT DU POINT CENTRAL
-                # On définit un pinceau plein pour le point
+                # 3. AJOUT DU POINT CENTRAL
                 painter.setBrush(QColor(255, 50, 50)) 
                 
-                # Calcul du centre du rectangle
+                # Utilisation de // pour garantir des entiers
                 centre_x = x + (w // 2)
                 centre_y = y + (h // 2)
                 
-                # On dessine un petit cercle de 6 pixels de rayon
+                # On dessine un cercle de 6 pixels
                 rayon = 6
-                painter.drawEllipse(centre_x - (rayon//2), centre_y - (rayon//2), rayon, rayon)
+                painter.drawEllipse(centre_x - (rayon // 2), centre_y - (rayon // 2), rayon, rayon)
                 
-                # On réinitialise le pinceau à "vide" pour ne pas remplir les prochains coins
+                # Réinitialisation du brush
                 painter.setBrush(Qt.BrushStyle.NoBrush)
 
-                print(f"Widget Size: {self.width()}x{self.height()} | Rect: {x}, {y}, {w}, {h}")
+                # Debugging propre
+                print(f"Affichage -> Widget: {self.width()}x{self.height()} | Rect dessiné: {x}, {y}, {w}, {h}")
 
             painter.end()
 
@@ -916,6 +946,38 @@ class StationControleWIL(QWidget):
         """
         self.label_statut.setText("STATUS : DISCONNECTED" if self.langue else "STATUT : DÉCONNECTÉ")
         self.label_statut.setStyleSheet("color: #e74c3c; font-weight: bold; font-family: 'Courier New', monospace; padding: 10px")
+
+
+
+    def scale_to_widget(self, x1_raw, y1_raw, x2_raw, y2_raw):
+        # 1. Dimensions de l'image sur laquelle l'IA a travaillé
+        # Si run_pipeline travaille sur la mosaïque de sortie :
+        img_w = self.image_originale.width()
+        img_h = self.image_originale.height()
+        
+        if img_w == 0 or img_h == 0: return QRectF(0,0,0,0)
+
+        # 2. Calcul de la largeur et hauteur BRUTES
+        # Si x2 est le point bas-droit : width = x2 - x1
+        raw_w = x2_raw - x1_raw
+        raw_h = y2_raw - y1_raw
+
+        # 3. Normalisation (on remet tout entre 0 et 1)
+        norm_x = x1_raw / img_w
+        norm_y = y1_raw / img_h
+        norm_w = raw_w / img_w
+        norm_h = raw_h / img_h
+
+        # 4. Conversion aux dimensions du Widget PyQt
+        W_gui = self.width()
+        H_gui = self.height()
+
+        final_x = norm_x * W_gui
+        final_y = norm_y * H_gui
+        final_w = norm_w * W_gui
+        final_h = norm_h * H_gui
+
+        return QRectF(final_x, final_y, final_w, final_h)
 
 
 
