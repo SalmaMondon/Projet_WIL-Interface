@@ -366,8 +366,8 @@ def detect(image_input, threshold=CONF_THRESHOLD):
         return []
 
     scores = pred[4][conf_mask]
-    cx = (x_grid + pred[1])[conf_mask] / GRID_SIZE
-    cy = (y_grid + pred[0])[conf_mask] / GRID_SIZE
+    cx = (x_grid + pred[0])[conf_mask] / GRID_SIZE
+    cy = (y_grid + pred[1])[conf_mask] / GRID_SIZE
     w  = pred[2][conf_mask]
     h  = pred[3][conf_mask]
 
@@ -385,7 +385,7 @@ def detect(image_input, threshold=CONF_THRESHOLD):
 # ============================================================
 # DEBUG
 # ============================================================
-# train()
+train()
 
 # img_tensor = transforms.Compose([
 #     transforms.Resize((IMG_SIZE, IMG_SIZE)),

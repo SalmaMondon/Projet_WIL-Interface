@@ -564,9 +564,10 @@ class StationControleWIL(QWidget):
         # 3. TRANSFORMATION (scale_to_widget)
         rectangles_corriges = []
         for det in coordonnees_brutes:
-            # Sécurité : on ne traite que si les coordonnées sont valides (x2 > x1)
-            if det[2] > det[0] and det[3] > det[1]:
-                rect = self.scale_to_widget(det[0], det[1], det[2], det[3])
+            x, y, w, h = det
+            x2, y2 = x + w, y + h
+            if w > 0 and h > 0:
+                rect = self.scale_to_widget(x, y, x2, y2)
                 rectangles_corriges.append(rect)
 
         # 4. AFFICHAGE ET COMPTEUR
@@ -722,19 +723,19 @@ class StationControleWIL(QWidget):
             self.canvas.setScaledContents(True)
             largeur = max(self.canvas.width(), 640)
             hauteur = max(self.canvas.height(), 480)
-            
+
             fond_veille = QPixmap(largeur, hauteur)
             fond_veille.fill(QColor("#0b0e14"))
-            
+
             painter = QPainter(fond_veille)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
             # --- 1. DESSIN DE LA GRILLE ---
-            pen_grille = QPen(QColor(137, 180, 250, 40)) 
+            pen_grille = QPen(QColor(137, 180, 250, 40))
             pen_grille.setWidth(1)
             painter.setPen(pen_grille)
-            
-            pas = 40 
+
+            pas = 40
             for x in range(0, largeur, pas):
                 painter.drawLine(x, 0, x, hauteur)
             for y in range(0, hauteur, pas):
@@ -745,7 +746,6 @@ class StationControleWIL(QWidget):
                 painter.drawEllipse(centre, r, r)
 
             # --- 2. DESSIN DU LOGO (FILIGRANE) ---
-            # Attention au nom du fichier ici ! 
             pixmap_logo = QPixmap(resource_path("assets/logo_wil_quedar_radar.png"))
             if not pixmap_logo.isNull():
                 painter.setOpacity(0.2)
@@ -753,111 +753,78 @@ class StationControleWIL(QWidget):
                 x_logo = (largeur - logo_redim.width()) // 2
                 y_logo = (hauteur - logo_redim.height()) // 2
                 painter.drawPixmap(x_logo, y_logo, logo_redim)
-            
+
             # --- 3. DESSIN DU TEXTE (OVERLAY) ---
             if self.message_overlay:
-                painter.setOpacity(1.0) # On remet l'opacité à 100%
-                
-                # Configuration de la police
+                painter.setOpacity(1.0)
                 police_radar = QFont("Consolas", 18)
                 police_radar.setBold(True)
                 police_radar.setLetterSpacing(QFont.SpacingType.PercentageSpacing, 110)
                 painter.setFont(police_radar)
-                
-                # Couleur
                 couleur = QColor("#ff5555") if "ERREUR" in self.message_overlay else QColor("#89b4fa")
                 painter.setPen(couleur)
-                
-                # Positionnement (centré)
                 rect_texte = fond_veille.rect().adjusted(20, 20, -20, -20)
                 painter.drawText(
-                    rect_texte, 
-                    Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, 
+                    rect_texte,
+                    Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
                     self.message_overlay
                 )
 
-            painter.end() # ON APPELLE END() UNE SEULE FOIS À LA FIN
+            painter.end()
             self.canvas.setPixmap(fond_veille)
             return
 
         # --- CAS 2 : IMAGE PRÉSENTE ---
         self.canvas.setScaledContents(False)
-        image_a_afficher = self.image_originale.copy()
-        
-        if self.afficher_boxes and self.objets_detectes:
-            painter = QPainter(image_a_afficher)
-            painter.setPen(QPen(QColor(255, 50, 50), 3))
-            
-            for rect in self.objets_detectes:
-                # 1. EXTRACTION ET CONVERSION EN ENTIERS
-                # Comme rect est un QRectF, getRect() renvoie des float. 
-                # On les transforme immédiatement en int pour painter.drawLine
-                x_f, y_f, w_f, h_f = rect.getRect()
-                x, y, w, h = int(x_f), int(y_f), int(w_f), int(h_f)
-                
-                # Taille des coins (25% du côté le plus petit)
-                t = int(min(w, h) * 0.25)
-                
-                # 2. DESSIN DES COINS (avec des coordonnées entières)
-                # Coin haut-gauche
-                painter.drawLine(x, y, x + t, y)
-                painter.drawLine(x, y, x, y + t)
-                
-                # Coin haut-droit
-                painter.drawLine(x + w, y, x + w - t, y)
-                painter.drawLine(x + w, y, x + w, y + t)
-                
-                # Coin bas-gauche
-                painter.drawLine(x, y + h, x + t, y + h)
-                painter.drawLine(x, y + h, x, y + h - t)
-                
-                # Coin bas-droit
-                painter.drawLine(x + w, y + h, x + w - t, y + h)
-                painter.drawLine(x + w, y + h, x + w, y + h - t)
 
-                # 3. AJOUT DU POINT CENTRAL
-                painter.setBrush(QColor(255, 50, 50)) 
-                
-                # Utilisation de // pour garantir des entiers
-                centre_x = x + (w // 2)
-                centre_y = y + (h // 2)
-                
-                # On dessine un cercle de 6 pixels
-                rayon = 6
-                painter.drawEllipse(centre_x - (rayon // 2), centre_y - (rayon // 2), rayon, rayon)
-                
-                # Réinitialisation du brush
-                painter.setBrush(Qt.BrushStyle.NoBrush)
-
-                # Debugging propre
-                print(f"Affichage -> Widget: {self.width()}x{self.height()} | Rect dessiné: {x}, {y}, {w}, {h}")
-
-            painter.end()
-
-        #Redimensionnement
-        pixmap_redim = image_a_afficher.scaled(
-            self.canvas.width(), self.canvas.height(), 
+        # 1. Redimensionnement avec KeepAspectRatio
+        pixmap_redim = self.image_originale.scaled(
+            self.canvas.width(), self.canvas.height(),
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation
         )
-        self.canvas.setPixmap(pixmap_redim)
-    
 
+        # 2. Ratio et offset de centrage dans le canvas noir
+        scale_x  = pixmap_redim.width()  / self.image_originale.width()
+        scale_y  = pixmap_redim.height() / self.image_originale.height()
+        offset_x = (self.canvas.width()  - pixmap_redim.width())  // 2
+        offset_y = (self.canvas.height() - pixmap_redim.height()) // 2
 
-    def enregistrer_capture(self, chemin, altitude, nb, type_objet): 
-        """
-        Enregistre les image et leur données dans la BDD
+        # 3. Canvas noir aux dimensions du QLabel
+        canvas_pixmap = QPixmap(self.canvas.width(), self.canvas.height())
+        canvas_pixmap.fill(QColor("black"))
 
-        Entrée :
-            - chemin (str) : chemin pour accéder à l'image
-            - altitude (float) : altitude du drône
-            - nb (int) : nombre d'objets comptés
-            - type_objet (str) : type d'objets comptés (moutons, voitures...)
-        """        
-        h = self.db.sauvegarder_mission(chemin, altitude, nb, type_objet, self.objets_detectes)
-        
-        # L'UI s'occupe de l'affichage uniquement
-        self.liste_historique.addItem(f"[{h}] - {nb} {type_objet} (Alt: {altitude}m)")
+        # 4. Coller l'image redimensionnée avec l'offset
+        painter = QPainter(canvas_pixmap)
+        painter.drawPixmap(offset_x, offset_y, pixmap_redim)
+
+        # 5. Dessin des boîtes par-dessus, avec offset et scale
+        if self.afficher_boxes and self.objets_detectes:
+            painter.setPen(QPen(QColor(255, 50, 50), 3))
+
+            for rect in self.objets_detectes:
+                x_f, y_f, w_f, h_f = rect.getRect()
+                x = int(x_f * scale_x) + offset_x
+                y = int(y_f * scale_y) + offset_y
+                w = int(w_f * scale_x)
+                h = int(h_f * scale_y)
+                t = int(min(w, h) * 0.25)
+
+                painter.drawLine(x,     y,     x + t,     y)
+                painter.drawLine(x,     y,     x,         y + t)
+                painter.drawLine(x + w, y,     x + w - t, y)
+                painter.drawLine(x + w, y,     x + w,     y + t)
+                painter.drawLine(x,     y + h, x + t,     y + h)
+                painter.drawLine(x,     y + h, x,         y + h - t)
+                painter.drawLine(x + w, y + h, x + w - t, y + h)
+                painter.drawLine(x + w, y + h, x + w,     y + h - t)
+
+                painter.setBrush(QColor(255, 50, 50))
+                painter.drawEllipse(x + w//2 - 3, y + h//2 - 3, 6, 6)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        painter.end()
+        self.canvas.setPixmap(canvas_pixmap)
 
 
 
@@ -996,33 +963,26 @@ class StationControleWIL(QWidget):
 
 
 
-    def scale_to_widget(self, x1_raw, y1_raw, x2_raw, y2_raw):
-        # 1. Dimensions de l'image sur laquelle l'IA a travaillé
-        # Si run_pipeline travaille sur la mosaïque de sortie :
+    def scale_to_widget(self, x_raw, y_raw, w_raw, h_raw):
+        # 1. Dimensions de l'image d'origine
         img_w = self.image_originale.width()
         img_h = self.image_originale.height()
         
         if img_w == 0 or img_h == 0: return QRectF(0,0,0,0)
 
-        # 2. Calcul de la largeur et hauteur BRUTES
-        # Si x2 est le point bas-droit : width = x2 - x1
-        raw_w = x2_raw - x1_raw
-        raw_h = y2_raw - y1_raw
+        # 2. Dimensions actuelles du canvas
+        canvas_w = self.canvas.width()
+        canvas_h = self.canvas.height()
 
-        # 3. Normalisation (on remet tout entre 0 et 1)
-        norm_x = x1_raw / img_w
-        norm_y = y1_raw / img_h
-        norm_w = raw_w / img_w
-        norm_h = raw_h / img_h
+        # 3. Calcul des ratios
+        ratio_x = canvas_w / img_w
+        ratio_y = canvas_h / img_h
 
-        # 4. Conversion aux dimensions du Widget PyQt
-        W_gui = self.width()
-        H_gui = self.height()
-
-        final_x = norm_x * W_gui
-        final_y = norm_y * H_gui
-        final_w = norm_w * W_gui
-        final_h = norm_h * H_gui
+        # 4. Conversion directe (plus de soustraction, on multiplie directement)
+        final_x = x_raw * ratio_x
+        final_y = y_raw * ratio_y
+        final_w = w_raw * ratio_x
+        final_h = h_raw * ratio_y
 
         return QRectF(final_x, final_y, final_w, final_h)
 
