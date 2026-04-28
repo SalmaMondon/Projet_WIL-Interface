@@ -38,9 +38,9 @@ def run_detection(mosaic=None):
     """Run AI detection on the mosaic. If none provided, loads the test image."""
     if mosaic is None:
         ############
-        mosaic = cv2.imread('IA/carviewalive.jpg')
+        mosaic = cv2.imread('IA/car2.png')
         ############
-
+        
     try:
         start_time = time.perf_counter()
 
@@ -76,5 +76,4 @@ def run_pipeline():
         return []
     return run_detection(mosaic)
 
-
-print(run_pipeline())
+print(run_detection())

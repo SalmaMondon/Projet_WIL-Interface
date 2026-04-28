@@ -11,32 +11,32 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import cv2
 
-# ----------------------------
+# ============================================================
 # CONFIGURATION
-# ----------------------------
-BASE_PATH = 'Car.v1i.yolov8'
-MODEL_PATH = 'drone_car_model.pth'
-GRID_SIZE = 32
-IMG_SIZE = 256
-BATCH_SIZE = 8
-EPOCHS = 0
-LEARNING_RATE = 1e-3
-NMS_THRESHOLD = 0.4   # IoU max entre deux boîtes gardées
-CONF_THRESHOLD = 0.3  # Seuil de confiance minimal
+# ============================================================
+BASE_PATH      = 'IA/Car.v1i.yolov8'
+MODEL_PATH     = 'IA/drone_car_model.pth'
+GRID_SIZE      = 32
+IMG_SIZE       = 256
+BATCH_SIZE     = 8
+EPOCHS         = 0
+LEARNING_RATE  = 1e-3
+NMS_THRESHOLD  = 0.4   # Max IoU between two kept boxes
+CONF_THRESHOLD = 0.3   # Minimum confidence score
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Exécution sur : {str(device).upper()}")
+print(f"Running on: {str(device).upper()}")
 
-# ----------------------------
-# DATASET YOLOv8 (inchangé)
-# ----------------------------
+
+# ============================================================
+# DATASET
+# ============================================================
 class YoloV8AerialDataset(Dataset):
     def __init__(self, img_dir, label_dir, grid_size=GRID_SIZE):
-        self.img_dir = img_dir
+        self.img_dir   = img_dir
         self.label_dir = label_dir
         self.grid_size = grid_size
         self.img_names = [f for f in os.listdir(img_dir) if f.endswith(('.jpg', '.png', '.jpeg'))]
-
         self.transform = transforms.Compose([
             transforms.Resize((IMG_SIZE, IMG_SIZE)),
             transforms.ToTensor(),
@@ -46,28 +46,25 @@ class YoloV8AerialDataset(Dataset):
         return len(self.img_names)
 
     def __getitem__(self, idx):
-        img_path = os.path.join(self.img_dir, self.img_names[idx])
+        img_path   = os.path.join(self.img_dir, self.img_names[idx])
         label_path = os.path.join(self.label_dir, os.path.splitext(self.img_names[idx])[0] + ".txt")
 
-        img = Image.open(img_path).convert("RGB")
-        img = self.transform(img)
-
+        img    = Image.open(img_path).convert("RGB")
+        img    = self.transform(img)
         target = torch.zeros(5, self.grid_size, self.grid_size)
 
         if os.path.exists(label_path):
             with open(label_path, 'r') as f:
                 for line in f:
                     parts = line.split()
-                    if len(parts) < 5: continue
+                    if len(parts) < 5:
+                        continue
                     cx, cy, w, h = map(float, parts[1:5])
 
-                    cell_x = int(cx * self.grid_size)
-                    cell_y = int(cy * self.grid_size)
-                    cell_x = min(cell_x, self.grid_size - 1)
-                    cell_y = min(cell_y, self.grid_size - 1)
-
-                    off_x = cx * self.grid_size - cell_x
-                    off_y = cy * self.grid_size - cell_y
+                    cell_x = min(int(cx * self.grid_size), self.grid_size - 1)
+                    cell_y = min(int(cy * self.grid_size), self.grid_size - 1)
+                    off_x  = cx * self.grid_size - cell_x
+                    off_y  = cy * self.grid_size - cell_y
 
                     if target[4, cell_y, cell_x] == 0:
                         target[0, cell_y, cell_x] = off_x
@@ -75,19 +72,19 @@ class YoloV8AerialDataset(Dataset):
                         target[2, cell_y, cell_x] = w
                         target[3, cell_y, cell_x] = h
                         target[4, cell_y, cell_x] = 1
+
         return img, target
 
 
-# ----------------------------
-# ARCHITECTURE AMÉLIORÉE
-# Ajouts :
-#   - Réseau plus profond (5 blocs conv au lieu de 3)
-#   - Skip connections style FPN : fusionne features fines (32x32)
-#     avec features sémantiques (8x8 upsamplées) pour mieux
-#     détecter les petits objets vus du ciel
-# ----------------------------
+# ============================================================
+# ARCHITECTURE — DroneNet (encoder-decoder + lightweight FPN)
+#
+#   256x256 → c1(32) → 128 → c2(64) → 64 → c3(128) → 32 (skip p3)
+#           → c4(256) → 16 → c5(256) → 16
+#   Decoder : 16 → upsample → 32 + p3 → fusion → head (5 channels)
+# ============================================================
 class ConvBlock(nn.Module):
-    """Conv 3x3 + BN + ReLU, optionnellement suivi d'un MaxPool."""
+    """Conv 3x3 + BN + ReLU, with optional MaxPool."""
     def __init__(self, in_f, out_f, pool=False):
         super().__init__()
         layers = [
@@ -104,69 +101,42 @@ class ConvBlock(nn.Module):
 
 
 class DroneNet(nn.Module):
-    """
-    Backbone encodeur-décodeur léger avec fusion multi-échelle (FPN simplifié).
-
-    Flux :
-        256x256 → c1(32) → pool → 128x128
-                → c2(64) → pool → 64x64
-                → c3(128) → pool → 32x32  ← skip p3
-                → c4(256) → pool → 16x16
-                → c5(256)        → 16x16  (features profondes)
-        
-        Décodeur :
-                16x16 → upsample → 32x32 + p3  → fusion → 32x32
-                      → tête de détection (5 canaux)
-    """
     def __init__(self):
         super().__init__()
-
-        # --- Encodeur ---
-        self.c1 = ConvBlock(3,   32,  pool=True)   # → 128
-        self.c2 = ConvBlock(32,  64,  pool=True)   # → 64
-        self.c3 = ConvBlock(64,  128, pool=True)   # → 32  (skip)
-        self.c4 = ConvBlock(128, 256, pool=True)   # → 16
-        self.c5 = ConvBlock(256, 256, pool=False)  # → 16  (contexte)
-
-        # --- Décodeur FPN ---
-        # Réduit les features profondes avant fusion
+        # Encoder
+        self.c1 = ConvBlock(3,   32,  pool=True)
+        self.c2 = ConvBlock(32,  64,  pool=True)
+        self.c3 = ConvBlock(64,  128, pool=True)  # → skip p3 (32x32)
+        self.c4 = ConvBlock(128, 256, pool=True)
+        self.c5 = ConvBlock(256, 256, pool=False) # global context (16x16)
+        # FPN decoder
         self.lateral = nn.Conv2d(256, 128, kernel_size=1)
-        # Après concat (128 deep + 128 skip) → 128 canaux
         self.fusion  = ConvBlock(256, 128)
-
-        # --- Tête de détection ---
+        # Detection head
         self.head = nn.Conv2d(128, 5, kernel_size=1)
 
     def forward(self, x):
-        x = self.c1(x)
-        x = self.c2(x)
-        p3 = self.c3(x)   # features à 32x32 (détails fins)
+        x  = self.c1(x)
+        x  = self.c2(x)
+        p3 = self.c3(x)
         x  = self.c4(p3)
-        x  = self.c5(x)   # features à 16x16 (contexte global)
+        x  = self.c5(x)
 
-        # Remonter à 32x32 et fusionner avec le skip
         x = self.lateral(x)
         x = nn.functional.interpolate(x, scale_factor=2, mode='nearest')
-        x = torch.cat([x, p3], dim=1)  # (256, 32, 32)
-        x = self.fusion(x)             # (128, 32, 32)
+        x = torch.cat([x, p3], dim=1)
+        x = self.fusion(x)
 
-        return torch.sigmoid(self.head(x))  # (5, 32, 32)
+        return torch.sigmoid(self.head(x))  # (B, 5, 32, 32)
 
 
-# ----------------------------
-# LOSS CIoU
-# Pourquoi CIoU plutôt que MSE ?
-#   - MSE pénalise pareil une grande et une petite erreur absolue
-#   - CIoU mesure le chevauchement réel des boîtes + pénalise
-#     la distance entre centres + le ratio d'aspect
-#   → entraînement bien plus stable et précis
-# ----------------------------
+# ============================================================
+# LOSS — CIoU
+# Better than MSE: penalizes overlap, center distance,
+# and aspect ratio consistency simultaneously.
+# ============================================================
 def ciou_loss(pred_boxes, target_boxes, eps=1e-7):
-    """
-    CIoU loss sur les boîtes normalisées [cx, cy, w, h] ∈ [0,1].
-    Les deux tenseurs sont de forme (N, 4).
-    """
-    # Conversion cx,cy,w,h → x1,y1,x2,y2
+    """CIoU loss on normalized boxes [cx, cy, w, h] ∈ [0,1]. Input shape: (N, 4)."""
     def to_xyxy(b):
         return torch.stack([
             b[:, 0] - b[:, 2] / 2,
@@ -178,36 +148,29 @@ def ciou_loss(pred_boxes, target_boxes, eps=1e-7):
     p = to_xyxy(pred_boxes)
     t = to_xyxy(target_boxes)
 
-    # Aire d'intersection
-    inter_x1 = torch.max(p[:, 0], t[:, 0])
-    inter_y1 = torch.max(p[:, 1], t[:, 1])
-    inter_x2 = torch.min(p[:, 2], t[:, 2])
-    inter_y2 = torch.min(p[:, 3], t[:, 3])
-    inter_area = (inter_x2 - inter_x1).clamp(0) * (inter_y2 - inter_y1).clamp(0)
-
-    # Aires individuelles
+    inter_area = (
+        (torch.min(p[:, 2], t[:, 2]) - torch.max(p[:, 0], t[:, 0])).clamp(0) *
+        (torch.min(p[:, 3], t[:, 3]) - torch.max(p[:, 1], t[:, 1])).clamp(0)
+    )
     area_p = (p[:, 2] - p[:, 0]) * (p[:, 3] - p[:, 1])
     area_t = (t[:, 2] - t[:, 0]) * (t[:, 3] - t[:, 1])
+    iou    = inter_area / (area_p + area_t - inter_area + eps)
 
-    # IoU
-    union = area_p + area_t - inter_area + eps
-    iou = inter_area / union
-
-    # Boîte englobante (pour DIoU/CIoU)
+    # Enclosing box
     enc_x1 = torch.min(p[:, 0], t[:, 0])
     enc_y1 = torch.min(p[:, 1], t[:, 1])
     enc_x2 = torch.max(p[:, 2], t[:, 2])
     enc_y2 = torch.max(p[:, 3], t[:, 3])
     c2 = (enc_x2 - enc_x1) ** 2 + (enc_y2 - enc_y1) ** 2 + eps
 
-    # Distance entre centres (DIoU)
+    # Center distance
     cx_p = (p[:, 0] + p[:, 2]) / 2
     cy_p = (p[:, 1] + p[:, 3]) / 2
     cx_t = (t[:, 0] + t[:, 2]) / 2
     cy_t = (t[:, 1] + t[:, 3]) / 2
-    d2 = (cx_p - cx_t) ** 2 + (cy_p - cy_t) ** 2
+    d2   = (cx_p - cx_t) ** 2 + (cy_p - cy_t) ** 2
 
-    # Terme de cohérence du ratio d'aspect (v)
+    # Aspect ratio consistency
     v = (4 / (torch.pi ** 2)) * (
         torch.atan(target_boxes[:, 2] / (target_boxes[:, 3] + eps)) -
         torch.atan(pred_boxes[:, 2]   / (pred_boxes[:, 3]   + eps))
@@ -215,146 +178,118 @@ def ciou_loss(pred_boxes, target_boxes, eps=1e-7):
     with torch.no_grad():
         alpha = v / (1 - iou + v + eps)
 
-    ciou = iou - d2 / c2 - alpha * v
-    return 1 - ciou  # perte (plus bas = mieux)
+    return 1 - (iou - d2 / c2 - alpha * v)
 
 
 def yolo_loss(pred, target):
-    mse = nn.MSELoss(reduction='sum')
-    obj_mask  = target[:, 4:5, :, :]   # (B,1,G,G) : 1 là où il y a un objet
+    mse        = nn.MSELoss(reduction='sum')
+    obj_mask   = target[:, 4:5, :, :]
     noobj_mask = 1 - obj_mask
 
-    # --- Perte de confiance ---
     loss_conf_obj   = mse(pred[:, 4:5] * obj_mask,   target[:, 4:5] * obj_mask)
     loss_conf_noobj = mse(pred[:, 4:5] * noobj_mask, target[:, 4:5] * noobj_mask)
 
-    # --- Perte de localisation CIoU (uniquement sur les cellules avec objet) ---
-    # Récupère les indices des cellules positives
-    obj_indices = obj_mask[:, 0].nonzero(as_tuple=False)  # (K, 3) : batch, y, x
-
+    obj_indices = obj_mask[:, 0].nonzero(as_tuple=False)
     if obj_indices.shape[0] > 0:
-        b_idx = obj_indices[:, 0]
-        y_idx = obj_indices[:, 1]
-        x_idx = obj_indices[:, 2]
+        b_idx, y_idx, x_idx = obj_indices[:, 0], obj_indices[:, 1], obj_indices[:, 2]
 
-        pred_coord = pred[b_idx, :4, y_idx, x_idx]     # (K, 4) : off_x, off_y, w, h
+        pred_coord = pred[b_idx, :4, y_idx, x_idx]
         tgt_coord  = target[b_idx, :4, y_idx, x_idx]
 
-        # Reconstruire cx,cy absolus en [0,1] pour CIoU
-        gs = GRID_SIZE
         def to_abs(coords, xi, yi):
-            cx = (xi.float() + coords[:, 0]) / gs
-            cy = (yi.float() + coords[:, 1]) / gs
+            cx = (xi.float() + coords[:, 0]) / GRID_SIZE
+            cy = (yi.float() + coords[:, 1]) / GRID_SIZE
             return torch.stack([cx, cy, coords[:, 2], coords[:, 3]], dim=1)
 
-        pred_abs = to_abs(pred_coord, x_idx, y_idx)
-        tgt_abs  = to_abs(tgt_coord,  x_idx, y_idx)
-
-        loss_coord = ciou_loss(pred_abs, tgt_abs).sum()
+        loss_coord = ciou_loss(to_abs(pred_coord, x_idx, y_idx),
+                               to_abs(tgt_coord,  x_idx, y_idx)).sum()
     else:
         loss_coord = torch.tensor(0.0, device=pred.device)
 
     return 5.0 * loss_coord + loss_conf_obj + 0.5 * loss_conf_noobj
 
 
-# ----------------------------
-# NMS (Non-Maximum Suppression)
-# Supprime les boîtes redondantes qui désignent le même mouton.
-# Algorithme :
-#   1. Trier les détections par confiance décroissante
-#   2. Garder la meilleure, supprimer toutes celles dont l'IoU
-#      avec elle dépasse NMS_THRESHOLD
-#   3. Répéter sur les boîtes restantes
-# ----------------------------
+# ============================================================
+# NMS — Non-Maximum Suppression
+# Sort by confidence, keep the best box and discard all others
+# with IoU above NMS_THRESHOLD.
+# ============================================================
 def compute_iou(box, boxes):
-    """IoU entre une boîte (4,) et un ensemble (N,4) — format xyxy."""
-    inter_x1 = torch.max(box[0], boxes[:, 0])
-    inter_y1 = torch.max(box[1], boxes[:, 1])
-    inter_x2 = torch.min(box[2], boxes[:, 2])
-    inter_y2 = torch.min(box[3], boxes[:, 3])
-    inter = (inter_x2 - inter_x1).clamp(0) * (inter_y2 - inter_y1).clamp(0)
-    area_box  = (box[2] - box[0]) * (box[3] - box[1])
+    """IoU between one box (4,) and a set of boxes (N, 4) in xyxy format."""
+    inter = (
+        (torch.min(box[2], boxes[:, 2]) - torch.max(box[0], boxes[:, 0])).clamp(0) *
+        (torch.min(box[3], boxes[:, 3]) - torch.max(box[1], boxes[:, 1])).clamp(0)
+    )
+    area_box   = (box[2]      - box[0])      * (box[3]      - box[1])
     area_boxes = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
-    union = area_box + area_boxes - inter + 1e-7
-    return inter / union
+    return inter / (area_box + area_boxes - inter + 1e-7)
 
 
 def nms(boxes, scores, iou_threshold=NMS_THRESHOLD):
-    """
-    boxes  : (N, 4) en pixels xyxy
-    scores : (N,)   confiances
-    Retourne les indices des boîtes conservées.
-    """
+    """Returns indices of boxes kept after NMS."""
     order = scores.argsort(descending=True)
-    kept = []
+    kept  = []
     while order.numel() > 0:
         i = order[0].item()
         kept.append(i)
         if order.numel() == 1:
             break
-        rest = order[1:]
-        ious = compute_iou(boxes[i], boxes[rest])
-        order = rest[ious < iou_threshold]
+        rest  = order[1:]
+        order = rest[compute_iou(boxes[i], boxes[rest]) < iou_threshold]
     return kept
 
+
+# ============================================================
+# MODEL
+# ============================================================
 model = DroneNet().to(device)
 
-def entrainement():
-    # ----------------------------
-    # INITIALISATION
-    # ----------------------------
-    train_ds = YoloV8AerialDataset(f'{BASE_PATH}/train/images', f'{BASE_PATH}/train/labels')
-    val_ds   = YoloV8AerialDataset(f'{BASE_PATH}/valid/images', f'{BASE_PATH}/valid/labels')
 
-    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
-    val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE)
+# ============================================================
+# TRAINING
+# ============================================================
+def train():
+    train_loader = DataLoader(
+        YoloV8AerialDataset(f'{BASE_PATH}/train/images', f'{BASE_PATH}/train/labels'),
+        batch_size=BATCH_SIZE, shuffle=True
+    )
 
-    
     optimizer = Adam(model.parameters(), lr=LEARNING_RATE)
-    # Réduit le lr par 2 si la loss ne baisse plus pendant 3 époques
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)
 
     if os.path.exists(MODEL_PATH):
         model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
-        print(f"--- Modèle chargé depuis {MODEL_PATH} ---")
+        print(f"--- Model loaded from {MODEL_PATH} ---")
     else:
-        print("--- Aucun entraînement trouvé. Création d'un nouveau modèle ---")
+        print("--- No saved model found, starting from scratch ---")
 
-    # ----------------------------
-    # BOUCLE D'ENTRAÎNEMENT
-    # ----------------------------
     if EPOCHS > 0:
-        print(f"Début de l'entraînement pour {EPOCHS} époques...")
+        print(f"Starting training for {EPOCHS} epochs...")
         for epoch in range(EPOCHS):
             model.train()
             total_loss = 0
             for batch_idx, (imgs, targets) in enumerate(train_loader):
                 imgs, targets = imgs.to(device), targets.to(device)
                 optimizer.zero_grad()
-                preds = model(imgs)
-                loss = yolo_loss(preds, targets)
+                loss = yolo_loss(model(imgs), targets)
                 loss.backward()
                 optimizer.step()
-
                 total_loss += loss.item()
                 if batch_idx % 10 == 0:
-                    print(f"Epoch {epoch+1} | Batch {batch_idx}/{len(train_loader)} | Loss: {loss.item():.4f}")
+                    print(f"  Epoch {epoch+1} | Batch {batch_idx}/{len(train_loader)} | Loss: {loss.item():.4f}")
 
             avg_loss = total_loss / len(train_loader)
             scheduler.step(avg_loss)
-            current_lr = optimizer.param_groups[0]['lr']
             torch.save(model.state_dict(), MODEL_PATH)
-            print(f"--- Fin Epoch {epoch+1} | Loss Moyenne: {avg_loss:.4f} | LR: {current_lr:.2e} | Sauvegardé ---")
+            print(f"--- Epoch {epoch+1} | Avg loss: {avg_loss:.4f} | LR: {optimizer.param_groups[0]['lr']:.2e} | Saved ---")
 
 
-# ----------------------------
-# AFFICHAGE AVEC NMS
-# ----------------------------
-def plot_prediction(img, pred, threshold=CONF_THRESHOLD):
-    """Affiche l'image avec les boîtes après NMS."""
-    img_np = img.permute(1, 2, 0).numpy()
-    pred_np = pred.numpy()
-
+# ============================================================
+# DISPLAY
+# ============================================================
+def plot_prediction(img_tensor, pred, threshold=CONF_THRESHOLD):
+    """Display the image with detection boxes after NMS."""
+    pred_np    = pred.numpy()
     raw_boxes  = []
     raw_scores = []
 
@@ -366,116 +301,98 @@ def plot_prediction(img, pred, threshold=CONF_THRESHOLD):
                 cy = (y + pred_np[1, y, x]) / GRID_SIZE * IMG_SIZE
                 w  = pred_np[2, y, x] * IMG_SIZE
                 h  = pred_np[3, y, x] * IMG_SIZE
-                x1, y1 = cx - w / 2, cy - h / 2
-                x2, y2 = cx + w / 2, cy + h / 2
-                raw_boxes.append([x1, y1, x2, y2])
+                raw_boxes.append([cx - w/2, cy - h/2, cx + w/2, cy + h/2])
                 raw_scores.append(conf)
 
-    plt.figure(figsize=(8, 8))
-    plt.imshow(img_np)
-    ax = plt.gca()
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.imshow(img_tensor.permute(1, 2, 0).numpy())
 
     if raw_boxes:
-        boxes_t  = torch.tensor(raw_boxes,  dtype=torch.float32)
-        scores_t = torch.tensor(raw_scores, dtype=torch.float32)
-        kept = nms(boxes_t, scores_t)
-
+        kept = nms(torch.tensor(raw_boxes,  dtype=torch.float32),
+                   torch.tensor(raw_scores, dtype=torch.float32))
         for i in kept:
             x1, y1, x2, y2 = raw_boxes[i]
-            rect = patches.Rectangle(
+            ax.add_patch(patches.Rectangle(
                 (x1, y1), x2 - x1, y2 - y1,
                 linewidth=2, edgecolor='r', facecolor='none'
-            )
-            ax.add_patch(rect)
+            ))
             ax.text(x1, y1 - 3, f"{raw_scores[i]:.2f}",
                     color='yellow', fontsize=7, fontweight='bold')
-
-        plt.title(f"Moutons détectés (après NMS) : {len(kept)}")
+        ax.set_title(f"Cars detected (after NMS): {len(kept)}")
     else:
-        plt.title("Aucune détection au-dessus du seuil")
+        ax.set_title("No detection above threshold")
 
-    plt.axis('off')
+    ax.axis('off')
     plt.tight_layout()
     plt.show()
 
 
+# ============================================================
+# DETECTION
+# ============================================================
 def detect(image_input, threshold=CONF_THRESHOLD):
     """
-    Détecte des objets dans une image et applique le filtrage NMS.
-    
-    Retourne : 
-        Une liste de dictionnaires filtrés par NMS : 
-        [{'box': [x1, y1, x2, y2], 'score': float}, ...]
+    Detect cars in an image and return boxes after NMS.
+    Accepts: file path (str), NumPy array (BGR), or PIL Image.
+    Returns: [{'box': [x1, y1, x2, y2], 'score': float}, ...]
     """
-    # 1. GESTION DE L'ENTRÉE (Conversion universelle en PIL RGB)
     try:
         if isinstance(image_input, str):
             raw_img = Image.open(image_input).convert("RGB")
         elif isinstance(image_input, np.ndarray):
-            # Cas OpenCV (BGR -> RGB)
             raw_img = Image.fromarray(cv2.cvtColor(image_input, cv2.COLOR_BGR2RGB))
         elif hasattr(image_input, 'convert'):
             raw_img = image_input.convert("RGB")
         else:
-            raise ValueError(f"Format d'image non supporté : {type(image_input)}")
+            raise ValueError(f"Unsupported image format: {type(image_input)}")
     except Exception as e:
-        print(f"[ERROR] Échec de la lecture de l'image : {e}")
+        print(f"[ERROR] Failed to read image: {e}")
         return []
 
-    # 2. PRÉ-TRAITEMENT
-    preprocess = transforms.Compose([
+    preprocess   = transforms.Compose([
         transforms.Resize((IMG_SIZE, IMG_SIZE)),
         transforms.ToTensor(),
     ])
-    
     input_tensor = preprocess(raw_img).unsqueeze(0).to(device)
 
-    # 3. INFÉRENCE
     model.eval()
     with torch.no_grad():
-        # pred shape attendue : [5, GRID_SIZE, GRID_SIZE]
         pred = model(input_tensor)[0].cpu().numpy()
 
-    # 4. EXTRACTION VECTORISÉE (Plus rapide que des boucles for)
-    # On crée une grille de coordonnées (x, y) pour NumPy
     y_grid, x_grid = np.ogrid[:GRID_SIZE, :GRID_SIZE]
-    
-    # Masque de confiance : on ne garde que ce qui dépasse le seuil
     conf_mask = pred[4] > threshold
-    
     if not np.any(conf_mask):
         return []
 
-    # Extraction des données filtrées par le masque
     scores = pred[4][conf_mask]
-    
-    # Calcul des centres et dimensions (cx, cy, w, h)
-    # pred[0]=dx, pred[1]=dy, pred[2]=dw, pred[3]=dh
     cx = (x_grid + pred[0])[conf_mask] / GRID_SIZE * IMG_SIZE
     cy = (y_grid + pred[1])[conf_mask] / GRID_SIZE * IMG_SIZE
     w  = pred[2][conf_mask] * IMG_SIZE
     h  = pred[3][conf_mask] * IMG_SIZE
 
-    # Conversion en coins [x1, y1, x2, y2]
-    x1, y1 = cx - w/2, cy - h/2
-    x2, y2 = cx + w/2, cy + h/2
-    
-    # Empilement pour créer la liste des boîtes brutes
-    raw_boxes = np.stack([x1, y1, x2, y2], axis=1)
+    raw_boxes  = np.stack([cx - w/2, cy - h/2, cx + w/2, cy + h/2], axis=1)
     raw_scores = scores.astype(float)
 
-    # 5. FILTRAGE NMS (Suppression des doublons)
-    boxes_t  = torch.tensor(raw_boxes,  dtype=torch.float32)
-    scores_t = torch.tensor(raw_scores, dtype=torch.float32)
-    
-    # kept contient les indices des boîtes retenues après NMS
-    kept_indices = nms(boxes_t, scores_t)
+    kept_indices = nms(
+        torch.tensor(raw_boxes,  dtype=torch.float32),
+        torch.tensor(raw_scores, dtype=torch.float32)
+    )
 
-    # 6. RÉSULTAT FINAL
-    return [
-        {
-            'box': raw_boxes[i].tolist(), 
-            'score': float(raw_scores[i])
-        } 
-        for i in kept_indices
-    ]
+    return [{'box': raw_boxes[i].tolist(), 'score': float(raw_scores[i])} for i in kept_indices]
+
+
+# ============================================================
+# DEBUG
+# ============================================================
+# train()
+
+# img_tensor = transforms.Compose([
+#     transforms.Resize((IMG_SIZE, IMG_SIZE)),
+#     transforms.ToTensor(),
+# ])(Image.open('IA/carviewalive.jpg').convert("RGB"))
+
+# model.eval()
+# with torch.no_grad():
+#     pred = model(img_tensor.unsqueeze(0).to(device))[0].cpu()
+
+# plot_prediction(img_tensor, pred)
