@@ -10,7 +10,7 @@ if os.path.exists(torch_lib_path):
     
 import ctypes
 import style
-from IA.main_IA import fonction_ia
+from IA.main_IA import run_pipeline
 from database_manager import DatabaseManager
 from config_manager import charger_configuration, sauvegarder_configuration
 from utils import FiltreCurseurLockOn, resource_path
@@ -508,7 +508,7 @@ class StationControleWIL(QWidget):
         if not self.image_originale.isNull():
             # Simulation des données de Mael et Anaïs
             # On crée une liste de 5 rectangles différents [x, y, largeur, hauteur]
-            coordonnees = fonction_ia()
+            coordonnees = run_pipeline()
             
             # On calcule le nombre d'objets en fonction du nombre de boîtes
             nb_trouve = len(coordonnees) 
