@@ -401,44 +401,81 @@ def plot_prediction(img, pred, threshold=CONF_THRESHOLD):
 
 def detect(image_input, threshold=CONF_THRESHOLD):
     """
-    Accepte un chemin (str), une PIL Image, ou un numpy array (BGR OpenCV).
-    Retourne une liste de dicts : [{'box': [x1,y1,x2,y2], 'score': float}, ...]
+    Détecte des objets dans une image et applique le filtrage NMS.
+    
+    Retourne : 
+        Une liste de dictionnaires filtrés par NMS : 
+        [{'box': [x1, y1, x2, y2], 'score': float}, ...]
     """
-    if isinstance(image_input, str):
-        raw_img = Image.open(image_input).convert("RGB")
-    elif isinstance(image_input, np.ndarray):
-        raw_img = Image.fromarray(cv2.cvtColor(image_input, cv2.COLOR_BGR2RGB))
-    else:
-        raw_img = image_input.convert("RGB")
+    # 1. GESTION DE L'ENTRÉE (Conversion universelle en PIL RGB)
+    try:
+        if isinstance(image_input, str):
+            raw_img = Image.open(image_input).convert("RGB")
+        elif isinstance(image_input, np.ndarray):
+            # Cas OpenCV (BGR -> RGB)
+            raw_img = Image.fromarray(cv2.cvtColor(image_input, cv2.COLOR_BGR2RGB))
+        elif hasattr(image_input, 'convert'):
+            raw_img = image_input.convert("RGB")
+        else:
+            raise ValueError(f"Format d'image non supporté : {type(image_input)}")
+    except Exception as e:
+        print(f"[ERROR] Échec de la lecture de l'image : {e}")
+        return []
 
+    # 2. PRÉ-TRAITEMENT
     preprocess = transforms.Compose([
         transforms.Resize((IMG_SIZE, IMG_SIZE)),
         transforms.ToTensor(),
     ])
-
+    
     input_tensor = preprocess(raw_img).unsqueeze(0).to(device)
+
+    # 3. INFÉRENCE
     model.eval()
     with torch.no_grad():
+        # pred shape attendue : [5, GRID_SIZE, GRID_SIZE]
         pred = model(input_tensor)[0].cpu().numpy()
 
-    # Récupère les boxes brutes au-dessus du seuil
-    raw_boxes, raw_scores = [], []
-    for y in range(GRID_SIZE):
-        for x in range(GRID_SIZE):
-            conf = pred[4, y, x]
-            if conf > threshold:
-                cx = (x + pred[0, y, x]) / GRID_SIZE * IMG_SIZE
-                cy = (y + pred[1, y, x]) / GRID_SIZE * IMG_SIZE
-                w  = pred[2, y, x] * IMG_SIZE
-                h  = pred[3, y, x] * IMG_SIZE
-                raw_boxes.append([cx - w/2, cy - h/2, cx + w/2, cy + h/2])
-                raw_scores.append(float(conf))
-
-    if not raw_boxes:
+    # 4. EXTRACTION VECTORISÉE (Plus rapide que des boucles for)
+    # On crée une grille de coordonnées (x, y) pour NumPy
+    y_grid, x_grid = np.ogrid[:GRID_SIZE, :GRID_SIZE]
+    
+    # Masque de confiance : on ne garde que ce qui dépasse le seuil
+    conf_mask = pred[4] > threshold
+    
+    if not np.any(conf_mask):
         return []
 
+    # Extraction des données filtrées par le masque
+    scores = pred[4][conf_mask]
+    
+    # Calcul des centres et dimensions (cx, cy, w, h)
+    # pred[0]=dx, pred[1]=dy, pred[2]=dw, pred[3]=dh
+    cx = (x_grid + pred[0])[conf_mask] / GRID_SIZE * IMG_SIZE
+    cy = (y_grid + pred[1])[conf_mask] / GRID_SIZE * IMG_SIZE
+    w  = pred[2][conf_mask] * IMG_SIZE
+    h  = pred[3][conf_mask] * IMG_SIZE
+
+    # Conversion en coins [x1, y1, x2, y2]
+    x1, y1 = cx - w/2, cy - h/2
+    x2, y2 = cx + w/2, cy + h/2
+    
+    # Empilement pour créer la liste des boîtes brutes
+    raw_boxes = np.stack([x1, y1, x2, y2], axis=1)
+    raw_scores = scores.astype(float)
+
+    # 5. FILTRAGE NMS (Suppression des doublons)
     boxes_t  = torch.tensor(raw_boxes,  dtype=torch.float32)
     scores_t = torch.tensor(raw_scores, dtype=torch.float32)
-    kept = nms(boxes_t, scores_t)
+    
+    # kept contient les indices des boîtes retenues après NMS
+    kept_indices = nms(boxes_t, scores_t)
 
-    return [{'box': raw_boxes[i], 'score': raw_scores[i]} for i in kept]
+    # 6. RÉSULTAT FINAL
+    return [
+        {
+            'box': raw_boxes[i].tolist(), 
+            'score': float(raw_scores[i])
+        } 
+        for i in kept_indices
+    ]
