@@ -35,37 +35,31 @@ def stitch_mosaic():
 
 
 def run_detection(mosaic=None):
-    """Run AI detection on the mosaic. If none provided, loads the test image."""
     if mosaic is None:
-        ############
         mosaic = cv2.imread('IA/carviewalive.jpg')
-        ############
+    if mosaic is None: return []
+
+    h_real, w_real = mosaic.shape[:2] # 1830, 3771
 
     try:
-        start_time = time.perf_counter()
-
+        # detections contient maintenant des boxes entre 0 et 1
         detections = IA_test.detect(mosaic)
-        print(f"Detections: {len(detections)} car(s)")
-
+        
         coordinates = []
         for d in detections:
-            x1, y1, x2, y2 = d['box']
-            x = int(round(x1))
-            y = int(round(y1))
-            w = int(round(x2 - x1))
-            h = int(round(y2 - y1))
-            coordinates.append((x, y, w, h))
-
-        detection.pad_to_square(mosaic)
-        print("Detection finished")
-
-        end_time = time.perf_counter()
-        print(f"Detection duration: {end_time - start_time:.6f} s")
+            x1_norm, y1_norm, x2_norm, y2_norm = d['box']
+            
+            # On multiplie directement par la taille réelle en pixels
+            nx = int(round(x1_norm * w_real))
+            ny = int(round(y1_norm * h_real))
+            nw = int(round((x2_norm - x1_norm) * w_real))
+            nh = int(round((y2_norm - y1_norm) * h_real))
+            
+            coordinates.append((nx, ny, nw, nh))
 
         return coordinates
-
     except Exception as e:
-        print(f'[ERROR] an error occured in the AI pipline  : {e}')
+        print(f"Erreur : {e}")
         return []
 
 
@@ -77,4 +71,4 @@ def run_pipeline():
     return run_detection(mosaic)
 
 
-print(run_pipeline())
+#print(run_pipeline())

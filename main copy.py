@@ -509,6 +509,8 @@ class StationControleWIL(QWidget):
             # Simulation des données de Mael et Anaïs
             # On crée une liste de 5 rectangles différents [x, y, largeur, hauteur]
             coordonnees = run_pipeline()
+            # On charge l'image qui a été sauvegardée par stitch_mosaic
+            self.charger_nouvelle_image('output/output_image.jpg', coordonnees)
             
             # On calcule le nombre d'objets en fonction du nombre de boîtes
             nb_trouve = len(coordonnees) 
@@ -750,6 +752,8 @@ class StationControleWIL(QWidget):
                 
                 # On réinitialise le pinceau à "vide" pour ne pas remplir les prochains coins
                 painter.setBrush(Qt.BrushStyle.NoBrush)
+
+                print(f"Widget Size: {self.width()}x{self.height()} | Rect: {x}, {y}, {w}, {h}")
 
             painter.end()
 
