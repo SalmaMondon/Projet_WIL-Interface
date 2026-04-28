@@ -366,23 +366,12 @@ def detect(image_input, threshold=CONF_THRESHOLD):
         return []
 
     scores = pred[4][conf_mask]
-    cx = (x_grid + pred[0])[conf_mask] / GRID_SIZE * IMG_SIZE
-    cy = (y_grid + pred[1])[conf_mask] / GRID_SIZE * IMG_SIZE
-    w  = pred[2][conf_mask] * IMG_SIZE
-    h  = pred[3][conf_mask] * IMG_SIZE
+    cx = (x_grid + pred[1])[conf_mask] / GRID_SIZE
+    cy = (y_grid + pred[0])[conf_mask] / GRID_SIZE
+    w  = pred[2][conf_mask]
+    h  = pred[3][conf_mask]
 
     raw_boxes  = np.stack([cx - w/2, cy - h/2, cx + w/2, cy + h/2], axis=1)
-    
-    # CALCUL NORMALISÉ : On divise par GRID_SIZE sans multiplier par IMG_SIZE
-    cx = (x_grid + pred[0])[conf_mask] / GRID_SIZE
-    cy = (y_grid + pred[1])[conf_mask] / GRID_SIZE
-    w  = pred[2][conf_mask] # Déjà normalisé par le modèle en général
-    h  = pred[3][conf_mask] 
-
-    x1, y1 = cx - w/2, cy - h/2
-    x2, y2 = cx + w/2, cy + h/2
-    
-    raw_boxes = np.stack([x1, y1, x2, y2], axis=1)
     raw_scores = scores.astype(float)
 
     kept_indices = nms(
@@ -408,15 +397,3 @@ def detect(image_input, threshold=CONF_THRESHOLD):
 #     pred = model(img_tensor.unsqueeze(0).to(device))[0].cpu()
 
 # plot_prediction(img_tensor, pred)
-    # NMS fonctionne très bien sur des valeurs normalisées
-    boxes_t  = torch.tensor(raw_boxes,  dtype=torch.float32)
-    scores_t = torch.tensor(raw_scores, dtype=torch.float32)
-    kept_indices = nms(boxes_t, scores_t)
-
-    return [
-        {
-            'box': raw_boxes[i].tolist(), 
-            'score': float(raw_scores[i])
-        } 
-        for i in kept_indices
-    ]
