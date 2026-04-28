@@ -7,50 +7,75 @@ from . import IA_test
 import cv2
 import time
 
-def fonction_ia():
+
+def stitch_mosaic():
+    """Acquire, preprocess and stitch the mosaic."""
     Set = acquisition.acquisition()
-    print('acquisition finished')
+    print('Acquisition finished')
 
     Set = preprocessing.preprocessing(Set)
-    print('preprocessing finished')
+    print('Preprocessing finished')
 
     try:
         start_time = time.perf_counter()
-        mosaique = stitching.stitching(Set)
-        print('assemblage finished')
 
-        mosaique = postprocessing.postprocessing(mosaique)
-        cv2.imwrite('output/output_image.jpg', mosaique)
+        mosaic = stitching.stitching(Set)
+        print('Stitching finished')
 
-        # Détection IA sur la mosaïque finale
+        mosaic = postprocessing.postprocessing(mosaic)
+        cv2.imwrite('output/output_image.jpg', mosaic)
+
+        end_time = time.perf_counter()
+        print(f"Stitching duration: {end_time - start_time:.6f} s")
+
+        return mosaic
+
+    except RuntimeError as e:
+        print(f'[ERROR] {e}')
+        return None
+
+
+def run_detection(mosaic=None):
+    """Run AI detection on the mosaic. If none provided, loads the test image."""
+    if mosaic is None:
         ############
-        mosaique = cv2.imread('IA/carviewalive.jpg')
+        mosaic = cv2.imread('IA/carviewalive.jpg')
         ############
-        detections = IA_test.detect(mosaique)
-        print(f"Détections : {len(detections)} voiture(s)")
-        coordonnees = []
+
+    try:
+        start_time = time.perf_counter()
+
+        detections = IA_test.detect(mosaic)
+        print(f"Detections: {len(detections)} car(s)")
+
+        coordinates = []
         for d in detections:
-            # On récupère x1, y1, x2, y2
             x1, y1, x2, y2 = d['box']
-            
-            # Ton interface a besoin de (x, y, largeur, hauteur)
-            # On calcule : largeur = x2 - x1 et hauteur = y2 - y1
             x = int(round(x1))
             y = int(round(y1))
             w = int(round(x2 - x1))
             h = int(round(y2 - y1))
-            
-            coordonnees.append((x, y, w, h))  
+            coordinates.append((x, y, w, h))
 
-        detection.pad_to_square(mosaique)
-        print("Full process finished")
+        detection.pad_to_square(mosaic)
+        print("Detection finished")
 
         end_time = time.perf_counter()
-        print(f"Duration : {end_time - start_time:.6f} s")
-        return coordonnees
+        print(f"Detection duration: {end_time - start_time:.6f} s")
+
+        return coordinates
 
     except RuntimeError as e:
         print(f'[ERROR] {e}')
         return []
 
-print(fonction_ia())
+
+def run_pipeline():
+    """Full pipeline: stitching then detection."""
+    mosaic = stitch_mosaic()
+    if mosaic is None:
+        return []
+    return run_detection(mosaic)
+
+
+print(run_pipeline())
