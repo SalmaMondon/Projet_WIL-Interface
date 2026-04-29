@@ -22,7 +22,7 @@ BATCH_SIZE     = 8
 EPOCHS         = 0
 LEARNING_RATE  = 1e-3
 NMS_THRESHOLD  = 0.4   # Max IoU between two kept boxes
-CONF_THRESHOLD = 0.3   # Minimum confidence score
+CONF_THRESHOLD = 0.02   # Minimum confidence score
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Running on: {str(device).upper()}")
