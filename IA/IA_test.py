@@ -18,7 +18,7 @@ MODEL_PATH     = 'IA/drone_car_model.pth'
 GRID_SIZE      = 32
 IMG_SIZE       = 256
 NMS_THRESHOLD  = 0.4
-CONF_THRESHOLD = 0.3
+CONF_THRESHOLD = 0.02
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
