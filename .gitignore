@@ -11,3 +11,8 @@ __pycache__/
 # Environnement virtuel
 venv/
 .venv/
+
+#Build
+dist/
+build/
+*.spec
