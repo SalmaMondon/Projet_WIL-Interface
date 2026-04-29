@@ -385,7 +385,8 @@ def detect(image_input, threshold=CONF_THRESHOLD):
 # ============================================================
 # DEBUG
 # ============================================================
-train()
+if __name__ == "__main__":
+    train()
 
 # img_tensor = transforms.Compose([
 #     transforms.Resize((IMG_SIZE, IMG_SIZE)),
