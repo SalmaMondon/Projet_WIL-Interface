@@ -14,11 +14,11 @@ import cv2
 # ============================================================
 # CONFIGURATION
 # ============================================================
-MODEL_PATH     = 'IA/drone_car_model.pth'
+MODEL_PATH     = 'IA/drone_person_model.pth'
 GRID_SIZE      = 32
 IMG_SIZE       = 256
 NMS_THRESHOLD  = 0.4
-CONF_THRESHOLD = 0.02
+CONF_THRESHOLD = 0.2
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
