@@ -16,9 +16,9 @@ import cv2
 # ============================================================
 MODEL_PATH     = 'IA/drone_person_model.pth'
 GRID_SIZE      = 32
-IMG_SIZE       = 256
-NMS_THRESHOLD  = 0.4
-CONF_THRESHOLD = 0.2
+IMG_SIZE       = 512
+NMS_THRESHOLD  = 0.25
+CONF_THRESHOLD = 0.4
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -63,8 +63,11 @@ class DroneNet(nn.Module):
         x  = nn.functional.interpolate(x, scale_factor=2, mode='nearest')
         x  = torch.cat([x, p3], dim=1)
         x  = self.fusion(x)
-        return torch.sigmoid(self.head(x))
-
+        pred = self.head()
+        xy = torch.sigmoid(pred[:,0:2])
+        wh = torch.exp(pred[:,2:4])
+        conf = torch.sigmoid(pred[:,4:5])
+        return torch.cat([xy, wh, conf], dim = 1)
 
 # ============================================================
 # CHARGEMENT DU MODÈLE
