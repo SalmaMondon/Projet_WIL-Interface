@@ -42,8 +42,9 @@ class StationControleWIL(QWidget):
         self.objets_detectes    = []
         self.afficher_boxes     = True
         self.langue             = charger_configuration()
+        self.message_overlay    = ""
         self.chemin_image_actuelle = ""
-        self.message_overlay    = "Choisissez une image"
+        
 
         # Loading spinner
         self.loader = QLabel(self)
@@ -333,7 +334,7 @@ class StationControleWIL(QWidget):
 
 
     def appliquer_textes_langue(self):
-        # 1. SAUVEGARDE de l'index actuel (pour ne pas perdre le choix de l'utilisateur)
+        # 1. SAUVEGARDE de l'index actuel
         current_idx = self.combo_objets.currentIndex()
         
         # 2. MISE À JOUR DES TEXTES GÉNÉRAUX
@@ -350,8 +351,14 @@ class StationControleWIL(QWidget):
             self.layout_type_objet.setText("Object type to detect:")
             self.label_compteur.setText(f"Detected objects: 0")
             
-            # Mise à jour des items du menu
-            self.combo_objets.blockSignals(True) # Évite de lancer un calcul par erreur
+            # Mise à jour du message overlay SI aucune image n'est chargée
+            if self.image_originale.isNull():
+                self.message_overlay = "Choose a picture"
+            else:
+                self.message_overlay = "" # On vide le message si l'image est là
+                
+            # Menu déroulant
+            self.combo_objets.blockSignals(True)
             self.combo_objets.clear()
             self.combo_objets.addItems(["Sheep", "Cars", "Humans", "Buildings"])
             self.combo_objets.blockSignals(False)
@@ -368,15 +375,23 @@ class StationControleWIL(QWidget):
             self.layout_type_objet.setText("Type d'objet à détecter :")
             self.label_compteur.setText(f"Objets détectés : 0")
             
-            # Mise à jour des items du menu
+            # Mise à jour du message overlay SI aucune image n'est chargée
+            if self.image_originale.isNull():
+                self.message_overlay = "Choisissez une image"
+            else:
+                self.message_overlay = ""
+
+            # Menu déroulant
             self.combo_objets.blockSignals(True)
             self.combo_objets.clear()
             self.combo_objets.addItems(["Moutons", "Voitures", "Humains", "Bâtiments"])
             self.combo_objets.blockSignals(False)
 
         # 3. RESTAURATION de l'index
-        # Si c'était le premier lancement, current_idx est -1, donc on force 0
         self.combo_objets.setCurrentIndex(max(0, current_idx))
+
+        # 4. CRUCIAL : Forcer la mise à jour visuelle
+        self.dessiner_tout() 
 
 
     def action_image(self):
