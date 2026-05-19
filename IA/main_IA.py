@@ -23,7 +23,7 @@ def stitch_mosaic():
 
         mosaic = postprocessing.postprocessing(mosaic)
         ##################### à changer quand on aura les vraies images
-        mosaic = cv2.imread('IA/testpeople.jpg')
+        #mosaic = cv2.imread('IA/testpeople.jpg')
         #####################
         cv2.imwrite('output/output_image.jpg', mosaic)
 
@@ -71,3 +71,4 @@ def run_pipeline():
     if mosaic is None:
         return []
     return run_detection(mosaic)
+stitch_mosaic()
