@@ -17,4 +17,4 @@ dist/
 build/
 *.spec
 
-IA/images
+#IA/images
