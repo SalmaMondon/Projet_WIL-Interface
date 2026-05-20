@@ -430,6 +430,7 @@ class StationControleWIL(QWidget):
 
 
     def finaliser_comptage(self, coordonnees_brutes):
+        print(f"[DEBUG] coordonnees_brutes : {coordonnees_brutes}")
         # Stop loader
         self.movie.stop()
         self.loader.hide()
@@ -445,7 +446,7 @@ class StationControleWIL(QWidget):
         # Display
         nb_trouve   = len(rectangles)
         type_objet  = self.combo_objets.currentText()
-        self.charger_nouvelle_image('output/output_image.jpg', rectangles)
+        self.charger_nouvelle_image('IA/output/output_image.jpg', rectangles)
         texte = (f"{type_objet} detected: {nb_trouve}" if self.langue
                  else f"{type_objet} détectés : {nb_trouve}")
         self.label_compteur.setText(texte)
