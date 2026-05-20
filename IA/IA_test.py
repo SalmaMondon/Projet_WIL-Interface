@@ -1,11 +1,11 @@
 """
 ➵ Authors : Mael Pierron, Jean-Max Agogué
-➵ Date : 17/03/2026
 ➵ Objective : Load DroneNet and run car detection (inference only)
 """
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torchvision import transforms
 from PIL import Image
 import numpy as np
@@ -14,16 +14,16 @@ import cv2
 # ============================================================
 # CONFIGURATION
 # ============================================================
-MODEL_PATH     = 'IA/drone_person_model.pth'
+MODEL_PATH     = 'IA/drone_car_model.pth'
 GRID_SIZE      = 32
 IMG_SIZE       = 256
 NMS_THRESHOLD  = 0.4
-CONF_THRESHOLD = 0.2
+CONF_THRESHOLD = 0.25
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ============================================================
-# ARCHITECTURE
+# ARCHITECTURE (identique à l'entraînement)
 # ============================================================
 class ConvBlock(nn.Module):
     def __init__(self, in_f, out_f, pool=False):
@@ -60,11 +60,10 @@ class DroneNet(nn.Module):
         x  = self.c4(p3)
         x  = self.c5(x)
         x  = self.lateral(x)
-        x  = nn.functional.interpolate(x, scale_factor=2, mode='nearest')
+        x  = F.interpolate(x, scale_factor=2, mode='nearest')
         x  = torch.cat([x, p3], dim=1)
         x  = self.fusion(x)
-        return torch.sigmoid(self.head(x))
-
+        return torch.sigmoid(self.head(x))  # (B, 5, 32, 32)
 
 # ============================================================
 # CHARGEMENT DU MODÈLE
@@ -72,7 +71,6 @@ class DroneNet(nn.Module):
 model = DroneNet().to(device)
 model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
 model.eval()
-
 
 # ============================================================
 # NMS
@@ -98,15 +96,14 @@ def nms(boxes, scores, iou_threshold=NMS_THRESHOLD):
         order = rest[compute_iou(boxes[i], boxes[rest]) < iou_threshold]
     return kept
 
-
 # ============================================================
 # DETECTION
 # ============================================================
 def detect(image_input, threshold=CONF_THRESHOLD):
     """
-    Détecte les voitures dans une image et retourne les boîtes après NMS.
     Accepte : chemin (str), NumPy array (BGR), ou PIL Image.
     Retourne : [{'box': [x1, y1, x2, y2], 'score': float}, ...]
+    Les coordonnées sont en pixels dans l'espace IMG_SIZE x IMG_SIZE.
     """
     try:
         if isinstance(image_input, str):
@@ -128,25 +125,26 @@ def detect(image_input, threshold=CONF_THRESHOLD):
     input_tensor = preprocess(raw_img).unsqueeze(0).to(device)
 
     with torch.no_grad():
-        pred = model(input_tensor)[0].cpu().numpy()
+        pred = model(input_tensor)[0].cpu().numpy()  # (5, 32, 32)
 
-    y_grid, x_grid = np.ogrid[:GRID_SIZE, :GRID_SIZE]
-    conf_mask = pred[4] > threshold
-    if not np.any(conf_mask):
+    raw_boxes, raw_scores = [], []
+    for y in range(GRID_SIZE):
+        for x in range(GRID_SIZE):
+            conf = pred[4, y, x]
+            if conf > threshold:
+                cx = (x + pred[0, y, x]) / GRID_SIZE
+                cy = (y + pred[1, y, x]) / GRID_SIZE
+                w  = pred[2, y, x]
+                h  = pred[3, y, x]
+                raw_boxes.append([cx - w/2, cy - h/2, cx + w/2, cy + h/2])
+                raw_scores.append(float(conf))
+
+    if not raw_boxes:
         return []
-
-    scores = pred[4][conf_mask]
-    cx     = (x_grid + pred[0])[conf_mask] / GRID_SIZE
-    cy     = (y_grid + pred[1])[conf_mask] / GRID_SIZE
-    w      = pred[2][conf_mask]
-    h      = pred[3][conf_mask]
-
-    raw_boxes  = np.stack([cx - w/2, cy - h/2, cx + w/2, cy + h/2], axis=1)
-    raw_scores = scores.astype(float)
 
     kept = nms(
         torch.tensor(raw_boxes,  dtype=torch.float32),
         torch.tensor(raw_scores, dtype=torch.float32)
     )
 
-    return [{'box': raw_boxes[i].tolist(), 'score': float(raw_scores[i])} for i in kept]
+    return [{'box': raw_boxes[i], 'score': raw_scores[i]} for i in kept]

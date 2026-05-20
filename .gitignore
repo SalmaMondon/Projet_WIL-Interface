@@ -16,3 +16,6 @@ venv/
 dist/
 build/
 *.spec
+
+IA/images
+*.pth
