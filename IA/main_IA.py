@@ -94,3 +94,5 @@ def run_pipeline():
     if mosaic is None:
         return []
     return run_detection(mosaic)
+
+stitch_mosaic()
