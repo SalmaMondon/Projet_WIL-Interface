@@ -9,6 +9,7 @@ if os.path.exists(torch_lib_path):
 
 import ctypes
 import style
+import requests
 from IA.main_IA import run_pipeline
 from database_manager import DatabaseManager
 from config_manager import charger_configuration, sauvegarder_configuration
@@ -658,21 +659,33 @@ class StationControleWIL(QWidget):
     # KEYBOARD / PILOTING
     # =========================================================
     def keyPressEvent(self, event):
+        baseurl = "http://10.179.218.179/"
         if event.isAutoRepeat():
             return
         touche = event.key()
         if touche == Qt.Key.Key_Up:
             self.btn_up.setDown(True);    self.piloter("AVANCER")
+            url = baseurl + "forward"
+            requests.get(url)
         elif touche == Qt.Key.Key_Down:
-            self.btn_down.setDown(True);  self.piloter("RECULER")
+            self.btn_down.setDown(True);  self.piloter("IDLE")
+            url = baseurl + "idle"
+            requests.get(url)
         elif touche == Qt.Key.Key_Left:
             self.btn_left.setDown(True);  self.piloter("GAUCHE")
+            url = baseurl + "left"
+            requests.get(url)
         elif touche == Qt.Key.Key_Right:
             self.btn_right.setDown(True); self.piloter("DROITE")
+            url = baseurl + "right"
+            requests.get(url)
         elif touche == Qt.Key.Key_Space:
             self.btn_monter.setDown(True); self.piloter("MONTER")
         elif touche in (Qt.Key.Key_Control, Qt.Key.Key_Shift):
             self.btn_descendre.setDown(True); self.piloter("DESCENDRE")
+        
+        url = baseurl + "idle"
+        requests.get(url)
 
 
     def keyReleaseEvent(self, event):
