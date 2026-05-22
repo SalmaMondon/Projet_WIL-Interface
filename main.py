@@ -685,8 +685,8 @@ class StationControleWIL(QWidget):
         elif touche in (Qt.Key.Key_Control, Qt.Key.Key_Shift):
             self.btn_descendre.setDown(True); self.piloter("DESCENDRE")
         
-        url = baseurl + "idle"
-        requests.get(url)
+        #url = baseurl + "idle"
+        #requests.get(url)
 
 
     def keyReleaseEvent(self, event):
