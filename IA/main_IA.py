@@ -29,7 +29,7 @@ def stitch_mosaic():
         mosaic = postprocessing.postprocessing(mosaic)
 
         ##################### à changer quand on aura les vraies images
-        mosaic = cv2.imread(TEST_IMAGE_PATH)
+        #mosaic = cv2.imread(TEST_IMAGE_PATH)
         #####################
 
         if mosaic is None:
@@ -93,6 +93,6 @@ def run_pipeline():
     mosaic = stitch_mosaic()
     if mosaic is None:
         return []
-    return run_detection(mosaic)
+    return run_detection()
 
-stitch_mosaic()
+# stitch_mosaic()
